@@ -1,0 +1,149 @@
+\section{Variance Estimation}
+\subsection{\y Consistent Variance Estimator}
+\subsection{Robust Variance Estimator}
+Accurate variance estimation for the regression parameters $(\Bb,\Be)$ is essential for valid statistical inference. Under the penalized likelihood framework, the asymptotic covariance matrix of the estimator $\wh\Bt = (\wh\Bb^\p,\wh\Be^\p,\wh\Bz^\p)^\p$ is typically obtained from the inverse of the penalized Fisher information matrix
+$$
+{\x\BV_\lambda(\wh\Bt) = \BI_\lambda^{-1}(\wh\Bt) = \phi\bigl(\BG^\p\BV^{-1}\BG  + \lambda\BP\bigr)^{-1}.}
+$$
+The block of $\x\BV_\lambda(\wh\Bt)$ corresponding to $(\Bb,\Be)$ provides a natural estimator of the covariance matrix of $(\wh\Bb,\wh\Be)$ under the assumed working model.
+
+However, it is well recognized that penalized spline components introduce additional smoothing bias, which leads to systematic underestimation of the variability of the index parameter estimator $\wh\Be$ when relying solely on the inverse Fisher information. This issue is particularly notable in partially linear single-index logistic models, where the spline approximation of the unknown link function interacts nontrivially with the index structure, thereby inflating the true sampling variability of $\wh\Be$ beyond what is captured by the naive Fisher information–based approach.
+
+To address this underestimation, we propose a robust sandwich-type variance estimator that accommodates potential model misspecification and accounts for the uncertainty induced by spline smoothing. In general, a robust covariance estimator can be expressed as
+$$
+\x\BV_{\lambda,r}(\wh\Bt) = \BI_\lambda^{-1}(\Bt)\BH(\Bt)\BI_\lambda^{-1}(\Bt),
+$$
+where 
+$$
+\x\BH(\Bt) = \var\left(\nabla l_\lambda(\Bt)\right) = \phi^{-2}\sum_{i=1}^n\nu_i^{-2}\var(y_i)\BG_i^{\otimes 2},%\phi^{-2}\BS^\p\BV^{-1}\BR^{\otimes 2}\BV^{-1}\BS,
+$$
+for $\nu_i=V(\mu_i)$, denotes the score covariance matrix formed from the individual score contributions. The variance $\var(y_i)$ is typically estimated by the moment estimator $\wh r_i^2 = (y_i-\wh\mu_i)^2$.
+The corresponding variance estimator for $(\wh\Bb,\wh\Be)$ is obtained by extracting the appropriate submatrix of the expression above. This robust adjustment substantially improves the accuracy of variance estimation for $(\Bb,\Be)$, especially for the index parameter $\Be$, whose variance is typically underestimated under the naive Fisher information approach.
+
+%------------------------------
+\subsection{Bias-Corrected Robust Variance Estimator}
+Although the sandwich variance estimator yields asymptotically valid inference for generalized single-index models, it is well documented that this estimator can suffer from substantial downward bias in finite samples, particularly for parameters that enter the model nonlinearly. This phenomenon is especially evident for the index parameter in logistic single-index models, where estimation uncertainty is amplified by the nonlinear mean structure and the normalization constraint imposed on the index. Consequently, standard sandwich-based variance estimates often fail to adequately capture the true sampling variability of the index parameter, leading to overly optimistic inference. To address this issue, we adopt finite-sample variance correction methods proposed by Mancl and DeRouen (2001) and by Morel et al. (2003). These corrections explicitly account for the impact of parameter estimation on the estimating equations and adjust the sandwich estimator to reduce finite-sample bias. Incorporating these variance correction techniques within the generalized single-index modeling framework provides a principled and computationally tractable approach to improving inference for index parameters, particularly in logistic models where curvature and nonlinearity exacerbate variance underestimation.
+
+
+%--------------------------------------------------
+\subsubsection{Leverage-Adjusted Robust Estimator}
+To calculate the robust covariance estimator, the residuals, $\wh r_i = y_i-\wh\mu_i$, are used to estimate $\var(y_i)$, i.e., $\var(y_i) \approx \wh r_i^2$.  It is well known that the residuals tend to be too small. Hence, the robust estimator would be expected 	to underestimate the covariance of $\wh\Bt$, and the bias of the robust estimator due to underestimation of $\var(y_i)$ would be large when the bias of the residuals is large.
+
+An alternative robust covariance estimator for $\wh\Bt$ is proposed that is intended to reduce the bias of the residual estimator, $\wh r_i^2$. To derive an approximation for the bias of $\wh r_i^2$, consider a first-order Taylor series expansion of the residua $r_i$ about $\Bt$ given by
+\begin{equation}
+	\wh r_i = r_i-\BG_i^\p(\wh\Bt-\Bt), \label{eq:ri-basic}
+\end{equation}
+where $r_i = r_i(\Bt) = y_i - \mu_i$. By squaring \eqref{eq:ri-basic} and taking the expectation, one obtains
+\begin{equation*}
+	E(\wh r_i^2) = E(r_i^2)+ E\Bigl\{\BG_i^\p\Big(\wh\Bt-\Bt\Big)^{\otimes 2}\BG_i\Bigr\}-2E\Big\{r_i\BG_i^\p\big(\wh\Bt-\Bt\big)\Big\}.
+\end{equation*}
+Using the first-order approximation, \todo{$\BG(\wh\Bt) - \BG(\Bt) = o_p(1)$}
+$$
+\nabla l_\lambda(\wh\Bt)= \nabla l_\lambda(\Bt) -\phi^{-1}\sum_{i=1}^n\nu_i^{-1}\BG_i^{\otimes 2}(\wh\Bt-\Bt), 
+$$
+and hence,
+\begin{equation}
+\wh\Bt-\Bt =  \left(\sum_{i=1}^n\nu_i^{-1}\BG_i^{\otimes 2}\right)^{-1}\sum_{i=1}^{n}\nu_i^{-1}r_i\BG_i. \label{eq:beta-expansion}
+\end{equation}
+We can substitute \eqref{eq:beta-expansion} into \eqref{eq:ri-basic} to obtain
+$$
+\wh r_i = r_i - \sum_{j=1}^n \nu_j^{-1}\Big(\BG_i^\p\BA\BG_j\Big) r_j = r_i - \sum_{j=1}^n h_{ij} r_j,
+$$
+where $\ds\BA =  \left(\sum_{i=1}^n\nu_i^{-1}\BG_i^{\otimes 2}\right)^{-1}$. 
+Separating the $j=i$ term yields
+\begin{equation*}
+	\wh r_i = (1 - h_{ii}) r_i - \sum_{j\neq i} h_{ij} r_j,
+	\label{eq:ri-split}
+\end{equation*}
+and hence,  
+\begin{equation*}
+	\wh r_i^ 2 = (1 - h_{ii})^2 r_i^2 - 2(1 - h_{ii}) r_i \Bigg(\sum_{j\neq i} h_{ij}r_j \Bigg)  + \Bigg(\sum_{j\neq i} h_{ij} r_j \Bigg)^2.
+\end{equation*}
+Assume that $r_1,\ldots,r_n$ are independent across subjects, so that $E(r_i r_j) = 0$, for $j\neq i$. Taking expectation of the above equation, the cross term vanishes, and we get
+$$ 
+E(\wh r_i^2) = (1 - h_{ii})^2 E(r_i^2)+ \sum_{j\neq i} h_{ij}^2 E(r_j^2)
+$$ 
+Because $E(r_i^2) = \var(y_i)$, this becomes
+$$ 
+E(\wh r_i^2) = (1 - h_{ii})^2\var(y_i) + \sum_{j\neq i} h_{ij}^2 \var(y_j).
+$$ 
+\hl{Noting that the elements of $h_{ij}$ are between $0$ and $1$ and typically close to $0$},\todo{More justification later} so that we drop the last summation and obtain 
+\begin{equation}
+E(\wh r_i^2) \approx (1 - h_{ii})^2\var(y_i), \label{varapprox}
+\end{equation}
+which is the main leverage-adjusted form used in the alternative robust covariance estimator.
+
+The robust covariance estimator takes the form
+\begin{equation*}
+\var(\wh\Bt) 
+= \phi^{-2}\BI_\lambda^{-1}(\Bt)\left\{\sum_{i=1}^n \nu_i^{-2}\var(y_i)\BG_i^{\otimes 2}\right\}\BI_\lambda^{-1}(\Bt). 
+\label{eq: var-approx}
+\end{equation*}
+However, the true covariance $\var(\by_i)$ is unknown. Solving approximately for $\var(y_i)$ in \eqref{varapprox} yields
+$$
+\var(y_i) = (1-h_{ii})^{-2}E(\wh r_i^2).
+$$
+Replacing $E(\wh r_i^2)$ by the observed $\wh r_i^2$ gives the bias--corrected estimator of $\var(y_i)$:
+$$
+\wh\var(y_i)= (1-h_{ii})^{-2}\wh r_i^2.
+$$
+Substituting $\wh\var(y_i)$ into the sandwich form yields the bias--corrected covariance estimator
+\begin{equation*}
+	\x\BV_{\lambda,c}^{(1)}(\wh\Bt) 
+= \phi^{-2}\BI_\lambda^{-1}(\Bt)\left\{\sum_{i=1}^n\nu_i^{-2}(1-h_{ii})^{-2}\wh r_i^2\BG_i^{\otimes 2}\right\}\BI_\lambda^{-1}(\Bt), \label{eq: var-approx}
+\end{equation*}
+where
+$$
+\x h_{ii} = \frac{1}{\nu_i\tg^{\prime 2} (\mu_i)}\BE_i^\p\BA\BE_i, 
+\qquad \BA = {\h\left(\sum_{i=1}^n\nu_i^{-1}\BG_i^{\otimes 2}\right)^{-1}} = \left\{\sum_{i=1}^n\frac{1}{\nu_i\tg^{\prime 2} (\mu_i)}\BE_i^{\otimes 2}\right\}^{-1}.
+$$
+
+%------------------------------------
+\subsubsection{Finite-Sample Correction to the Variance Estimator}
+Morel et al. (2003) introduced a small sample correction in the Taylor series based estimator of the covariance matrix of the parameter \sout{estimates}
+{\h estimators}. The correction reduces the bias of the Type I error rates in small samples and guarantees positive definiteness of the estimated 
+\sout{variance-covariance} {\h covariance} 
+matrix. {\h[I changed ``variance-covariance" to ``covariance" just for consistency.]}
+To adjust for the bias incurred by the sandwich estimator, Morel et al. (2003)  recommended an inflated estimator by adding a scaled version of trace to the sandwich estimator. Incorporating the suggestion by Morel et al. (2003), we proposed an adjusted estimator to atone for the deficiency in  variance estimation. 
+
+The modified variance-covariance estimator is referred to as 
+\begin{align*}
+	%\x\BV_{\lambda,c}^{(2)}(\wh\Bt) = \BV_\lambda^{-1}(\wh\Bt)\left\{\BH(\wh\Bt)+ \delta\kappa\BI_\lambda(\Bt)\right\}\BI_\lambda^{-1}(\wh\Bt),
+	\x\BV_{\lambda,c}^{(2)}(\wh\Bt) = \BV_{\lambda,r}(\wh\Bt)+\delta\kappa\BI_\lambda^{-1}(\wh\Bt),
+\end{align*}
+where 
+$$
+\delta = \min\left(0.5,\frac{\rho}{n-\rho}\right)\quad \text{and} \quad \kappa = \max\Big[1,\rho^{-1}\mbox{trace}\big\{\BI_\lambda^{-1}(\Bt)\BH(\Bt)\big\}\Big].
+$$
+The quantity $\mbox{trace}\big\{\BI(\Bt)^{-1}\BH(\Bt)\big\}$ is referred to generalized design effect (Morel et al. 2003). Note that the above bias-corrected variance estimator is guaranteed to be positive definite provided $\BI(\Bt)$ is non-singular. 
+
+%The performance of the proposed variance-covariance estimation method was evaluated in Monte Carlo studies and the results indicate that the modified estimator provides more accurate variance-covariance estimation compared to the standard sandwich estimator in various settings. The approach was further employed for inference on regression parameters in the real application.
+
+The Jacobian matrix of the mapping $\x F: \Bt = (\Bb^\p,\Be^\p,\Bz^\p)^\p \rightarrow  \Bt_{\Be} = (\Bb^\p,\Ba_{\Be}^\p,\Bz^\p)^\p$ is
+$$
+\x\BJ(\Be) = \begin{bmatrix}
+	\BI_d                        & \mathbf{0}_{d\times(p-1)}                  & \mathbf{0}_{d\times(q_n-1)}\\
+	\mathbf{0}_{1\times d}       & -h^{-3/2}\Be^\p                            & \mathbf{0}_{1\times(q_n-1)} \\
+	\mathbf{0}_{(p-1)\times d}   & -h^{-3/2}\Be^{\otimes 2}+h^{-1/2}\BI_{p-1} & \mathbf{0}_{(p-1)\times(q_n-1)}     \\
+	\mathbf{0}_{(q_n-1)\times d} & \mathbf{0}_{(q_n-1)\times(p-1)}              & \BI_{q_n-1}
+\end{bmatrix}
+$$
+where $h = 1+\|\Be\|^2$. Notice that $\BJ(\Be)$ is a matrix of dimension $(d+p+q_n-1)\times(d+p-1+q_n-1)$. In our simulation setting (i.e., $p$ = 3 and $d$ = 2),
+$$
+\BJ(\Be) = \begin{bmatrix}
+	\BI_2                        & \mathbf{0}_{2\times 1} &  \mathbf{0}_{2\times 1} & \mathbf{0}_{2\times(q_n-1)}\\
+	\mathbf{0}_{1\times 2}       & -h^{-3/2}\eta_1 & -h^{-3/2}\eta_2  & \mathbf{0}_{1\times(q_n-1)}\\
+	\mathbf{0}_{1\times 2}       & h^{-1/2}-h^{-3/2}\eta_1^2 & -h^{-3/2}\eta_1\eta_2  & \mathbf{0}_{1\times(q_n-1)}\\
+	\mathbf{0}_{1\times 2}       & -h^{-3/2}\eta_1\eta_2  & h^{-1/2}-h^{-3/2}\eta_2^2  & \mathbf{0}_{1\times(q_n-1)}\\
+	\mathbf{0}_{(q_n-1)\times 2} & \mathbf{0}_{(q_n-1)\times 1}                       &    \mathbf{0}_{(q_n-1)\times 1}                            & \BI_{q_n-1}
+\end{bmatrix}
+$$
+Hence, the robust and bias-corrected variance estimators of $\wh\Bt_{\Be}$ is given by   
+$$
+\BV(\wh\Bt_{\Be}) = \BJ(\Be)\BV(\wh\Bt)\BJ^\p(\Be),
+$$ 
+where $\BV(\wh\Bt)$ is the generic form of robust and bias-corrected variance estimators for $\wh\Bt$. 
+
+
+ 
+

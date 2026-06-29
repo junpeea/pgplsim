@@ -1,0 +1,166 @@
+ \documentclass[10pt]{article}
+%\usepackage[labelformat=empty]{caption}
+\usepackage{amsmath,amssymb,amsfonts,latexsym,epsfig, color, varioref, graphics,setspace,verbatim}
+\usepackage{fullpage}
+%\usepackage[nolists]{endfloat}
+\usepackage{booktabs}
+\usepackage{bm}
+\usepackage{amsthm}
+\usepackage{multirow}
+\usepackage{caption}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsthm}
+\usepackage{soul}
+\usepackage{mathrsfs}
+\usepackage{threeparttable}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{float}      % Optional, for precise figure placement
+\usepackage{graphicx}
+
+
+\usepackage[normalem]{ulem}
+%Some common commands provided by the ulem package are:
+%\uline{}: Underlines the text.
+%\uuline{}: Double underlines the text.
+%\uwave{}: Wavy underline for the text.
+%\sout{}: Strikethrough the text.
+%\xout{}: Puts a series of slashes through the text.
+\usepackage{cancel}
+
+
+
+\usepackage[textwidth=2.5cm, textsize=scriptsize,color=lightpink]{todonotes}
+%  put your commands here
+\raggedbottom \textwidth=6.3 in \textheight=9 in
+\oddsidemargin=0in \evensidemargin=-0.25in   %headheight=-0.5in
+\parskip=12pt
+\parindent=0.25in
+\setlength{\parindent}{0cm}
+%------------My Definitions--------
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\theoremstyle{remark}
+\newtheorem{remark}{Remark}
+
+\newcommand{\mathcolorbox}[2]{\colorbox{#1}{$\displaystyle #2$}}
+\newcommand{\colvec}[2]{\left(\begin{matrix} #1 \\ #2 \end{matrix}\right)}
+
+\newcommand\La{\Lambda}
+\newcommand\ds{\displaystyle}
+\newcommand{\D}{\Delta}
+\newcommand{\Pn}{ {\mathbb P}_{n}}
+\newcommand{\M}{ {\mathbb M}}
+\newcommand{\Mn}{ {\mathbb M}_{n}}
+\newcommand{\Gn}{ {\mathbb G}_{n}}
+\newcommand\ve{\varepsilon}
+\newcommand{\PnD}{\mathbb{P}_{n\Delta}}
+\newcommand{\PD}{\mathbb{P}_{\Delta}}
+\newcommand{\G}{\mathscr{G}}
+\newcommand{\p}{\intercal}
+\newcommand{\wh}{\widehat}
+\newcommand{\wt}{\widetilde}
+\newcommand{\var}{\text{var}}
+\newcommand{\tr}{\textsl{r}}
+
+\newcommand{\BA}{\mathbf{A}}
+\newcommand{\BB}{\mathbf{B}}
+\newcommand{\BC}{\mathbf{C}}
+\newcommand{\BD}{\mathbf{D}}
+\newcommand{\BE}{\mathbf{E}}
+\newcommand{\BF}{\mathbf{F}}
+\newcommand{\BG}{\mathbf{G}}
+\newcommand{\BH}{\mathbf{H}}
+\newcommand{\BI}{\mathbf{I}}
+\newcommand{\BJ}{\mathbf{J}}
+\newcommand{\BP}{\mathbf{P}}
+\newcommand{\BQ}{\mathbf{Q}}
+\newcommand{\BR}{\mathbf{R}}
+\newcommand{\BS}{\mathbf{S}}
+\newcommand{\BU}{\mathbf{U}}
+\newcommand{\BV}{\mathbf{V}}
+\newcommand{\BW}{\mathbf{W}}
+\newcommand{\BX}{\mathbf{X}}
+\newcommand{\BZ}{\mathbf{Z}}
+
+\newcommand{\Ba}{\bm\alpha}
+\newcommand{\Bb}{\bm\beta}
+\newcommand{\Bd}{\bm\delta}
+\newcommand{\Be}{\bm\eta}
+\newcommand{\Bg}{\bm\gamma}
+\newcommand{\Bm}{\bm\mu}
+\newcommand{\Bn}{\bm\nu}
+\newcommand{\Bp}{\bm\phi}
+\newcommand{\Bt}{\bm\theta}
+\newcommand{\Btau}{\bm\tau}
+\newcommand{\Bpi}{\bm\pi}
+\newcommand{\Bx}{\bm\xi}
+\newcommand{\Bz}{\bm\zeta}
+\newcommand{\vp}{\varphi}
+\newcommand{\BDD}{\bm\Delta}
+%\newcommand{\La}{\Lambda}
+
+\newcommand{\ba}{\mathbf{a}} 
+\newcommand{\bb}{\mathbf{b}} 
+\newcommand{\bd}{\mathbf{d}} 
+\newcommand{\be}{\mathbf{e}} 
+\newcommand{\tg}{\textsl{g}}
+\newcommand{\bh}{\mathbf{h}} 
+\newcommand{\br}{\mathbf{r}} 
+\newcommand{\bs}{\mathbf{s}}
+\newcommand{\bu}{\mathbf{u}} 
+\newcommand{\bw}{\mathbf{w}}
+\newcommand{\bx}{\mathbf{x}}
+\newcommand{\by}{\mathbf{y}} 
+\newcommand{\bz}{\mathbf{z}} 
+
+\definecolor{RoyalBlue}{rgb}{0.25,0.41,0.88}
+\definecolor{lightgrey}{rgb}{0.5,0.5,0.5}
+\definecolor{islamicgreen}{rgb}{0,0.56,0}
+\definecolor{coralred}{rgb}{1.0, 0.25, 0.25}
+\definecolor{lightpink}{rgb}{1.0, 0.71, 0.76}
+\definecolor{blue(ryb)}{rgb}{0.01, 0.28, 1.0}
+
+\newcommand{\x }{\color{coralred}}
+\newcommand{\g}{\color{RoyalBlue}}
+\newcommand{\y}{\color{blue(ryb)}}
+\newcommand{\h}{\color{islamicgreen}}
+
+ 
+\setstretch{1.2}
+\begin{document}
+\title{Efficient Estimation of Generalized Partially Linear Single-Index Models Using Penalized Splines}
+%\author{Minggen Lu}
+\date{Created on January 14, 2022\\Last updated on \today}
+\maketitle
+%--------------------Introduction-------------------------------------;
+\section{Introduction}
+	%Yu and Ruppert (2002) used fixed knots. 
+%------------Model------------
+%\input{files//model.tex}
+\input{model_CSLi020726.tex}
+%------------Asymptotics------------
+\section{\y Asymptotic results} We will establish 
+\vspace{-0.5cm}
+\begin{itemize}
+	\item Uniform consistency and rate of convergence of $\wh\vp(\cdot)$
+	\item Asymptotic normality of $(\wh\Bb,\wh\Be)$
+	%\item Likelihood ratio test for $H_0: (\Bb,\Bp) = (\Bb_0,\Bp_0)$
+	%\item Consistency of variance estimators for $(\Bb,\Be)$
+\end{itemize}
+%------------Variance estimation------------
+%\input{files//variance.tex}
+\input{variance_CSLi020726.tex}
+%------------Simulation------------;
+\input{Simulation_YBJun062226.tex}
+
+%------------Appendix------------;	
+\input{appendix_YBJun062226.tex}
+
+%-----------------------
+%\input{document.tex}
+%------------------------
+%\input{robust glm.tex}
+	
+\end{document}

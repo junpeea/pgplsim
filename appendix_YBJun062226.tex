@@ -1,0 +1,536 @@
+%\appendix
+%------partially linear logisitc single-index models------
+\section{Technical Details}
+%---------------------------
+\subsection{Common Single-index models}
+In this section we discuss the estimation of common single-index models, including partially linear single-index models, partially linear logistic single-index models, and partially linear Poisson single-index models. 
+
+%------linear modle------; 
+\emph{Partially Linear \sout{Logistic} Single-Index Models.}
+Consider partially linear single-index models
+\begin{equation}
+	y_i =\mu_i+\ve_i =  \Bb^\p\bx_i+\Bz^\p\bb_i+\ve_i,~~~\ve_i\sim N(0,\sigma^2)\label{linear}
+\end{equation}
+The penalized log-likelihood of $\Bt$ is given by
+\begin{equation*}
+	l_\lambda(\Bt) = -\frac{1}{2\sigma^2}\sum_{i=1}^n \big(y_i-\mu_i\big)^2 - \frac{1}{2\sigma^2}\lambda\Bz^\p\BD^\p\BD\Bz.
+\end{equation*}	
+%--------------------------
+In the following are gradient and Fisher of $l_\lambda(\Bt)$ and robust variance estimators of $\wh\Bt$:
+\vspace{-0.35cm}
+\begin{itemize}
+	\item The gradient of $l_\lambda(\Bt)$ is 
+	$$
+	\nabla l_\lambda(\Bt) = 1/\sigma^2\BE^\p(\by-\Bm)-\lambda/\sigma^2\BP\Bt.
+	$$ 
+	\item  The Fisher information of $l_\lambda(\Bt)$ is
+	$$
+	\BI_\lambda(\Bt) = 1/\sigma^2\BE^\p\BE+\lambda/\sigma^2\BP.
+	$$
+	\item For model \eqref{linear}, $\tg(\mu_i) = \mu_i$, $V(\mu_i) = 1$, and $\phi = \sigma^2$. Thus, $\BG = \BE$ and $\BV$ is an identity matrix. Further, $\sigma^2$ can be updated via an adjusted Pearson statistics methods, namely,
+	$$
+	\wh\sigma^2 = \frac{1}{\rho} \sum_{i=1}^n (y_i-\wh\mu_i)^2,
+	$$
+	where $\x\rho$ is an adjusted degrees of freedom defined as $\text{tr}\left\{\big(\BE^\p\BE+\lambda\BP\big)^{-1}\BE^\p\BE\right\}$. 
+	\item For robust variance estimation, $U_i(\Bt) = 1/\sigma^2(y_i-\mu)\BE_i$, and hence,
+	$$
+	\BH(\Bt) = \sum_{i=1}^n{\h \var(U_i(\Bt))}\cancel{U_i(\Bt)^{\otimes 2}} = 1/\sigma^4\BE^\p\BF\BE, 
+	$$
+	where \sout{$\BF= \text{diag}\bigl\{(y_1-\mu_1)^2,\ldots,(y_n-\mu_n)^2\bigr\}$.} 
+	{\h $\BF=\text{diag}\bigl\{\var(y_1-\mu_1),\ldots,\var(y_n-\mu_n)\bigr\}=\sigma^2\BI$.}
+	\item The robust variance of $\wh\Bt$ can be written as
+	$$
+	{\x \BV_{\lambda,r}(\wh\Bt) = \cancel{\BI_\lambda^{-1}(\wh\Bt)\BH(\wh\Bt)\BI_\lambda^{-1}(\wh\Bt)}
+		= {\h\BI_\lambda^{-1}(\Bt)\BH(\Bt)\BI_\lambda^{-1}(\Bt)}
+		= \bigl(\BE^\p\BE+\lambda\BP\bigr)^{-1}\bigl(\BE^\p\BF\BE\bigr)\bigl(\BE^\p\BE+\lambda\BP\bigr)^{-1}.}
+	$$
+	\item  For leverage-adjusted robust variance estimation, 
+	$$
+	\x\BV_{\lambda,c}^{(1)}(\wh\Bt) 
+	= \left(\BE\BE^\p+\lambda\BP\right)^{-1}\left\{\sum_{i=1}^n\left(\frac{y_i-\wh\mu_i}{1-h_{ii}}\right)^2\BE_i^{\otimes 2}\right\}\left(\BE\BE^\p+\lambda\BP\right)^{-1},
+	$$
+	where
+	$
+	h_{ii} =\BE_i^\p\BA\BE_i
+	$
+	with 
+	$\BA  = \left(\ds\sum_{i=1}^n\BE_i^{\otimes 2}\right)^{-1},
+	$
+	\item  The sample correction robust variance estimator is given by
+	$$
+	\x\BV_{\lambda,c}^{(2)}(\wh\Bt) = \BV_{\lambda,r}(\wh\Bt)+\kappa\delta(\BE\BE^\p+\lambda\BP)^{-1},
+	$$
+	where 
+	$
+	\delta = \min\left\{0.5,\rho/(n-\rho)\right\}
+	$
+	and
+	\sout{$\kappa = \max\left[1,\text{trace}\left\{(\BE\BE^\p+\lambda\BP)^{-1}\BH(\Bt)\right\}\right]$.}
+	{\h
+\begin{align*}
+\kappa 
+&= \max\left[1,\rho^{-1}\text{trace}\left\{\BI_{\lambda}^{-1}(\Bt)\BH(\Bt)\right\}\right] \\
+&= \max\left[1,\rho^{-1}\text{trace}\left\{(1/\sigma^2\BE\BE^\p+\lambda/\sigma^2\BP)^{-1}\BH(\Bt)\right\}\right] \\
+&= \max\left[1,\rho^{-1}\sigma^2\text{trace}\left\{(\BE\BE^\p+\lambda\BP)^{-1}\BH(\Bt)\right\}\right] 
+\end{align*}
+}
+\end{itemize}
+
+%------logistic modle------; 
+\emph{Partially Linear Logistic Single-Index Models.}
+Consider partially linear logistic single-index models
+\begin{equation}
+	\log \frac{\mu_i}{1-\mu_i} = \Bb^\p\bz_i+\Bz^\p\bb_i\Longleftrightarrow \mu_i = \frac{\exp(\Bb^\p\bx_i+\Bz^\p\bb_i)}{1+\exp(\Bb^\p\bx_i+\Bz^\p\bb_i)}. \label{logistic}
+\end{equation}
+The penalized log-likelihood of $\Bt$ is given by
+\begin{equation*}
+	l_\lambda(\Bt) = \sum_{i=1}^n \left\{y_i\log\mu_i+\big(1-y_i\big)\log\big(1-\mu_i\big)\right\} - \frac{1}{2}\lambda\Bz^\p\BD^\p\BD\Bz.
+\end{equation*}	
+%--------------------------
+In the following are gradient and Fisher of $l_\lambda(\Bt)$ and robust variance estimators of $\wh\Bt$:
+\vspace{-0.35cm}
+\begin{itemize}
+\item The gradient of $l_\lambda(\Bt)$ is 
+$$
+\nabla l_\lambda(\Bt) = \BE^\p(\by-\Bm)-\lambda\BP\Bt
+$$ 
+\item The Fisher information of $l_\lambda(\Bt)$ is
+$$
+\BI_\lambda(\Bt) = \BE^\p\BV_1\BE+\lambda\BP,
+$$
+where $\BV_1 = \text{diag}\left\{\mu_1(1-\mu_1),\ldots,\mu_n(1-\mu_n)\right\}$. 
+\item For model \eqref{logistic}, $\tg(\mu_i) = \ds\log\frac{\mu_i}{1-\mu_i}$, $V(\mu_i) = \mu_i(1-\mu_i)$, and $\phi = 1$. Thus, $\BG = \BV_1\BE$. 
+\item For robust variance estimation, $U_i(\Bt) = (y_i-\mu_i)\BE_i$, and hence	
+$$
+\BH(\Bt) = \sum_{i=1}^n \cancel{U_i(\Bt)^{\otimes 2}}
+{\h\var(U_i(\Bt))}
+= \BE^\p\BF\BE,
+$$
+{\h where $\BF=\text{diag}\left\{\var(y_1-\mu_1),\ldots,\var(y_n-\mu_n)\right\}
+	=\text{diag}\left\{\mu_1(1-\mu_1),\ldots,\mu_n(1-\mu_n)\right\}=\BV_1$.}
+\item The robust variance of $\wh\Bt$ can be written as
+$$
+{\x\BV_{\lambda,r}(\wh\Bt) = \cancel{\BI_\lambda^{-1}(\wh\Bt)\BH(\wh\Bt)\BI_\lambda^{-1}(\wh\Bt)}
+={\h	\BI_\lambda^{-1}(\Bt)\BH(\Bt)\BI_\lambda^{-1}(\Bt)}
+= \bigl(\BE^\p\BV_1\BE+\lambda\BP\bigr)^{-1}\bigl(\BE^\p\BF\BE\bigr)\bigl(\BE^\p\BV_1\BE+\lambda\BP\bigr)^{-1}.}
+$$
+\item For leverage-adjusted robust variance estimation, 
+$$
+\x\BV_{\lambda,c}^{(1)}(\wh\Bt) 
+= \left(\BE\BV_1\BE^\p+\lambda\BP\right)^{-1}\left\{\sum_{i=1}^n\left(\frac{y_i-\wh\mu_i}{1-h_{ii}}\right)^2\BE_i^{\otimes 2}\right\}\left(\BE\BV_1\BE^\p+\lambda\BP\right)^{-1},
+$$
+where 
+$
+h_{ii} =\mu_i(1-\mu_i)\BE_i^\p\BA\BE_i
+$
+with 
+$\BA  = \left(\ds\sum_{i=1}^n\mu_i(1-\mu_i)\BE_i^{\otimes 2}\right)^{-1}.
+$
+\item The sample correction robust variance estimator is given by
+$$
+\x\BV_{\lambda,c}^{(2)}(\wh\Bt) = \BV_{\lambda,r}(\wh\Bt)+\delta\kappa(\BE\BV_1\BE^\p+\lambda\BP)^{-1},
+$$
+where 
+$
+\delta = \min\left\{0.5,\rho/(n-\rho)\right\}
+$
+and
+\sout{$\kappa = \max\left[1,\text{trace}\left\{(\BE\BV_1\BE^\p+\lambda\BP)^{-1}\BH(\Bt)\right\}\right]$.}
+{\h
+	\begin{align*}
+		\kappa 
+		&= \max\left[1,\rho^{-1}\text{trace}\left\{\BI_{\lambda}^{-1}(\Bt)\BH(\Bt)\right\}\right] \\
+		&= \max\left[1,\rho^{-1}\text{trace}\left\{(\BE\BV_1\BE^\p+\lambda\BP)^{-1}\BH(\Bt)\right\}\right] 
+	\end{align*}
+}
+
+\end{itemize}
+%--------------------------
+
+%------------Poisson model-----------;
+\emph{Partially Linear Poisson Single-Index Models.}
+Consider partially linear Poisson single-index models
+\begin{equation}
+	\log\mu_i = \log C_i+\Bb^\p\bz_i+\Bz^\p\bb_i \Longleftrightarrow \mu_i = C_i\exp(\Bb^\p\bz_i+\Bz^\p\bb_i). \label{poisson}
+\end{equation}
+The penalized log-likelihood of $\Bt$ is given by
+\begin{equation*}
+	l_\lambda(\Bt) = \sum_{i=1}^n \big(y_i\log\mu_i-\mu_i\big)- \frac{1}{2}\lambda\Bz^\p\BD^\p\BD\Bz.
+\end{equation*}	
+In the following are gradient and Fisher of $l_\lambda(\Bt)$ and robust variance estimators of $\wh\Bt$:
+\vspace{-0.35cm}
+\begin{itemize}
+	\item The gradient of $l_\lambda(\Bt)$ is
+	$$
+	\nabla l_\lambda(\Bt) = \BE^\p(\by-\Bm)-\lambda\BP\Bt
+	$$
+	\item  The Fisher information of $l_\lambda(\Bt)$ is
+	$$
+	\BI_\lambda(\Bt) = \BE^\p\BV_2 \BE+\lambda\BP,
+	$$
+	where $\BV_2 = \text{diag}\left\{\mu_1,\ldots,\mu_n\right\}$. 
+	\item For model \eqref{poisson}, $\tg(\mu_i) = \ds\log\mu_i$, $V(\mu_i) = \mu_i$, and $\phi = 1$. Thus, $\BG = \BV_2\BE$. 
+	\item For robust variance estimation, $U_i(\Bt) = (y_i-\mu_i)\BE_i$, and hence
+	$$
+	\BH(\Bt) = \cancel{\sum_{i=1}^n U_i(\Bt)^{\otimes 2}= \sum_{i=1}^n(y_i-\mu_i)^2\BE_i^{\otimes 2}}
+	={\h  \sum_{i=1}^n \var(U_i(\Bt))=\sum_{i=1}^n\var(y_i-\mu_i)\BE_i^{\otimes 2}}
+	= \BE^\p\BF\BE, 
+	$$
+{\h
+where $\BF=\text{dig}\{\var(y_1-\mu_1),\dots,\var(y_n-\mu_n)\}=\text{dig}\{\mu_1,\dots,\mu_n\}=\BV_2$
+}	
+	
+	\item The robust variance of $\wh\Bt$ can be written as 
+	$$
+	{\x\BV_{\lambda,r}(\wh\Bt) = \cancel{\BI_\lambda(\wh\Bt)^{-1}\BH(\wh\Bt)\BI_\lambda^{-1}(\wh\Bt)}
+		={\h\BI_\lambda(\Bt)^{-1}\BH(\Bt)\BI_\lambda^{-1}(\Bt)}
+		= \bigl(\BE^\p\BV_2\BE+\lambda\BP\bigr)^{-1}\bigl(\BE^\p\BF\BE\bigr)\bigl(\BE^\p\BV_2\BE+\lambda\BP\bigr)^{-1}.}
+	$$
+	\item For leverage-adjusted robust variance estimation, 
+	$$
+	\x\BV_{\lambda,c}^{(1)}(\wh\Bt) 
+	= \left(\BE\BV_2\BE^\p+\lambda\BP\right)^{-1}\left\{\sum_{i=1}^n\left(\frac{y_i-\wh\mu_i}{1-h_{ii}}\right)^2\BE_i^{\otimes 2}\right\}\left(\BE\BV_2\BE^\p+\lambda\BP\right)^{-1},
+	$$
+	where 
+	$
+	h_{ii} =\mu_i\BE_i^\p\BA\BE_i
+	$
+	with 
+	$\BA  = \left(\ds\sum_{i=1}^n\mu_i\BE_i^{\otimes 2}\right)^{-1}
+	$
+	\item The sample correction robust variance estimator is given by
+	$$
+	\x\BV_{\lambda,c}^{(2)}(\wh\Bt) = \BV_{\lambda,r}(\wh\Bt)+\delta\kappa(\BE\BV_2\BE^\p+\lambda\BP)^{-1},
+	$$
+	where 
+	$\delta = \min\left\{0.5,\rho/(n-\rho)\right\}$ and $\kappa = \max\left[1,{\h\rho^{-1}}\text{trace}\left\{(\BE\BV_2\BE^\p+\lambda\BP)^{-1}\BH(\Bt)\right\}\right].$	
+\end{itemize}
+
+\subsection{Appendix: Simulation results}
+
+\begin{table}[H]
+\centering
+\begin{threeparttable}
+\caption{Summary of parameter estimation for a Poisson simulation study.}
+\label{tab:sim_param_pois_extended}
+\begin{tabular}{llcccccc}
+\toprule
+& & \multicolumn{3}{c}{Lu} & \multicolumn{3}{c}{Yu} \\
+\cmidrule(lr){3-5} \cmidrule(lr){6-8}
+Parameter & Metric 
+& $n=400$ & $n=800$ & $n=2000$
+& $n=400$ & $n=800$ & $n=2000$ \\
+\midrule
+
+\multirow{4}{*}{$\alpha_{1}$}
+& Mean & 0.5767 & 0.5774 & 0.5774 & 0.5624 & 0.5734 & 0.5743 \\
+& Bias & 0.0006 & $-0.0001$ & 0.0000 & 0.0149 & 0.0040 & 0.0031 \\
+& SD   & 0.0176 & 0.0123 & 0.0075 & 0.1154 & 0.0431 & 0.0247 \\
+& MSE  & 0.0003 & 0.0002 & 0.0001 & 0.0135 & 0.0019 & 0.0006 \\
+\midrule
+
+\multirow{4}{*}{$\alpha_{2}$}
+& Mean & 0.5774 & 0.5777 & 0.5774 & 0.5430 & 0.5787 & 0.5790 \\
+& Bias & $-0.0000$ & $-0.0003$ & 0.0000 & 0.0343 & $-0.0013$ & $-0.0016$ \\
+& SD   & 0.0178 & 0.0125 & 0.0073 & 0.1925 & 0.0437 & 0.0250 \\
+& MSE  & 0.0003 & 0.0002 & 0.0001 & 0.0382 & 0.0019 & 0.0006 \\
+\midrule
+
+\multirow{4}{*}{$\alpha_{3}$}
+& Mean & 0.5771 & 0.5765 & 0.5772 & 0.5433 & 0.5751 & 0.5772 \\
+& Bias & 0.0003 & 0.0008 & 0.0002 & 0.0340 & 0.0023 & 0.0002 \\
+& SD   & 0.0180 & 0.0123 & 0.0074 & 0.2081 & 0.0438 & 0.0246 \\
+& MSE  & 0.0003 & 0.0002 & 0.0001 & 0.0444 & 0.0019 & 0.0006 \\
+\midrule
+
+\multirow{4}{*}{$\beta_{1}$}
+& Mean & 1.0003 & 0.9996 & 1.0001 & 1.0026 & 0.9972 & 0.9995 \\
+& Bias & $-0.0003$ & 0.0004 & $-0.0001$ & $-0.0026$ & 0.0028 & 0.0005 \\
+& SD   & 0.0166 & 0.0111 & 0.0065 & 0.0716 & 0.0520 & 0.0355 \\
+& MSE  & 0.0003 & 0.0001 & 0.0000 & 0.0051 & 0.0027 & 0.0013 \\
+\midrule
+
+\multirow{4}{*}{$\beta_{2}$}
+& Mean & $-0.5005$ & $-0.4996$ & $-0.4998$ & $-0.5055$ & $-0.5022$ & $-0.5019$ \\
+& Bias & 0.0005 & $-0.0004$ & $-0.0002$ & 0.0055 & 0.0022 & 0.0019 \\
+& SD   & 0.0346 & 0.0235 & 0.0147 & 0.1171 & 0.0821 & 0.0530 \\
+& MSE  & 0.0012 & 0.0006 & 0.0002 & 0.0137 & 0.0067 & 0.0028 \\
+
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\footnotesize
+\item $\boldsymbol{\alpha}_0 = (1/\sqrt{3}, 1/\sqrt{3}, 1/\sqrt{3})^\top$ and 
+$\boldsymbol{\beta}_0 = (1, -0.5)$. Sample mean (Mean), bias, standard deviation (SD), and mean squared error (MSE) based on 1000 Monte Carlo samples.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+% Table 1: Summary of Parameter Estimation
+% \begin{table}[H]
+% \centering
+% \begin{threeparttable}
+% \caption{Summary of parameter estimation for a Poisson simulation study.}
+% \label{tab:sim_param_pois}
+% \begin{tabular}{llcccccccc}
+% \toprule
+% Poisson & & \multicolumn{4}{c}{$n = 800$} & \multicolumn{4}{c}{$n = 2000$} \\
+% \cmidrule(lr){3-6} \cmidrule(lr){7-10}
+% Parameter & Method & Mean & Bias & SD & MSE & Mean & Bias & SD & MSE \\
+% \midrule
+% \multirow{2}{*}{$\alpha_{1}$}
+%  & Lu & 0.5774 & $-0.0001$ & 0.0123 & 0.0002 & 0.5774 & 0.0000 & 0.0075 & 0.0001 \\
+%  & Yu & 0.5734 & 0.0040 & 0.0431 & 0.0019 & 0.5743 & 0.0031 & 0.0247 & 0.0006 \\
+
+% \multirow{2}{*}{$\alpha_{2}$}
+%  & Lu & 0.5777 & $-0.0003$ & 0.0125 & 0.0002 & 0.5774 & 0.0000 & 0.0073 & 0.0001 \\
+%  & Yu & 0.5787 & $-0.0013$ & 0.0437 & 0.0019 & 0.5790 & $-0.0016$ & 0.0250 & 0.0006 \\
+
+% \multirow{2}{*}{$\alpha_{3}$}
+%  & Lu & 0.5765 & 0.0008 & 0.0123 & 0.0002 & 0.5772 & 0.0002 & 0.0074 & 0.0001 \\
+%  & Yu & 0.5751 & 0.0023 & 0.0438 & 0.0019 & 0.5772 & 0.0002 & 0.0246 & 0.0006 \\
+
+% \multirow{2}{*}{$\beta_{1}$}
+%  & Lu & 0.9996 & 0.0004 & 0.0111 & 0.0001 & 1.0001 & $-0.0001$ & 0.0065 & 0.0000 \\
+%  & Yu & 0.9972 & 0.0028 & 0.0520 & 0.0027 & 0.9995 & 0.0005 & 0.0355 & 0.0013 \\
+
+% \multirow{2}{*}{$\beta_{2}$}
+%  & Lu & $-0.4996$ & $-0.0004$ & 0.0235 & 0.0006 & $-0.4998$ & $-0.0002$ & 0.0147 & 0.0002 \\
+%  & Yu & $-0.5022$ & 0.0022 & 0.0821 & 0.0067 & $-0.5019$ & 0.0019 & 0.0530 & 0.0028 \\
+% \bottomrule
+% \end{tabular}
+% \begin{tablenotes}
+% \footnotesize
+% \item $\boldsymbol{\alpha}_0 = (1/\sqrt{3}, 1/\sqrt{3}, 1/\sqrt{3})^\top$ and 
+% $\boldsymbol{\beta}_0 = (1, -0.5)$. Sample mean (Mean), bias, standard deviation (SD), and mean squared error (MSE) of the parameter estimates from the proposed spline-based estimator (Lu) and the penalized spline estimator of \cite{Yu2017} (Yu), based on 1000 Monte Carlo samples with sample sizes $n = 800$ and $n = 2000$, respectively.
+% \end{tablenotes}
+% \end{threeparttable}
+% \end{table}
+
+\begin{table}[ht!]
+\centering
+\begin{threeparttable}
+\caption{Summary of parameter estimation for a Binomial simulation study.}
+\label{tab:sim_param_bino_extended}
+\begin{tabular}{llcccccc}
+\toprule
+& & \multicolumn{3}{c}{Lu} & \multicolumn{3}{c}{Yu} \\
+\cmidrule(lr){3-5} \cmidrule(lr){6-8}
+Parameter & Metric 
+& $n=400$ & $n=800$ & $n=2000$
+& $n=400$ & $n=800$ & $n=2000$ \\
+\midrule
+
+\multirow{4}{*}{$\alpha_{1}$}
+& Mean & 0.5610 & 0.5724 & 0.5744 & 0.5376 & 0.5595 & 0.5703 \\
+& Bias & 0.0164 & 0.0049 & 0.0029 & 0.0397 & 0.0178 & 0.0070 \\
+& SD   & 0.1335 & 0.0834 & 0.0484 & 0.2183 & 0.1522 & 0.0715 \\
+& MSE  & 0.0181 & 0.0070 & 0.0023 & 0.0492 & 0.0234 & 0.0052 \\
+\midrule
+
+\multirow{4}{*}{$\alpha_{2}$}
+& Mean & 0.5610 & 0.5704 & 0.5765 & 0.3999 & 0.5057 & 0.5696 \\
+& Bias & 0.0163 & 0.0070 & 0.0009 & 0.1775 & 0.0716 & 0.0077 \\
+& SD   & 0.1389 & 0.0839 & 0.0494 & 0.4216 & 0.2878 & 0.1074 \\
+& MSE  & 0.0195 & 0.0071 & 0.0024 & 0.2091 & 0.0879 & 0.0116 \\
+\midrule
+
+\multirow{4}{*}{$\alpha_{3}$}
+& Mean & 0.5625 & 0.5709 & 0.5750 & 0.4059 & 0.5094 & 0.5669 \\
+& Bias & 0.0149 & 0.0065 & 0.0024 & 0.1715 & 0.0679 & 0.0104 \\
+& SD   & 0.1310 & 0.0840 & 0.0484 & 0.4016 & 0.2566 & 0.1107 \\
+& MSE  & 0.0174 & 0.0071 & 0.0023 & 0.1905 & 0.0704 & 0.0124 \\
+\midrule
+
+\multirow{4}{*}{$\beta_{1}$}
+& Mean & 1.0170 & 1.0094 & 1.0050 & 1.0186 & 1.0072 & 1.0040 \\
+& Bias & $-0.0170$ & $-0.0094$ & $-0.0050$ & $-0.0186$ & $-0.0072$ & $-0.0040$ \\
+& SD   & 0.1422 & 0.0985 & 0.0609 & 0.1494 & 0.0999 & 0.0612 \\
+& MSE  & 0.0205 & 0.0098 & 0.0037 & 0.0226 & 0.0100 & 0.0038 \\
+\midrule
+
+\multirow{4}{*}{$\beta_{2}$}
+& Mean & $-0.5031$ & $-0.5003$ & $-0.5002$ & $-0.5096$ & $-0.5004$ & $-0.4998$ \\
+& Bias & 0.0031 & 0.0003 & 0.0002 & 0.0096 & 0.0004 & $-0.0002$ \\
+& SD   & 0.1647 & 0.1146 & 0.0748 & 0.2364 & 0.1594 & 0.1042 \\
+& MSE  & 0.0271 & 0.0131 & 0.0056 & 0.0559 & 0.0254 & 0.0108 \\
+
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\footnotesize
+\item $\boldsymbol{\alpha}_0 = (1/\sqrt{3}, 1/\sqrt{3}, 1/\sqrt{3})^\top$ and 
+$\boldsymbol{\beta}_0 = (1, -0.5)$. Sample mean (Mean), bias, standard deviation (SD), and mean squared error (MSE) based on 1000 Monte Carlo samples.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+% \begin{table}[ht!]
+% \centering
+% \begin{threeparttable}
+% \caption{Summary of parameter estimation for a Binomial simulation study.}
+% \label{tab:sim_param_bino}
+% \begin{tabular}{llcccccccc}
+% \toprule
+% Binomial & & \multicolumn{4}{c}{$n = 800$} & \multicolumn{4}{c}{$n = 2000$} \\
+% \cmidrule(lr){3-6} \cmidrule(lr){7-10}
+% Parameter & Method & Mean & Bias & SD & MSE & Mean & Bias & SD & MSE \\
+% \midrule
+% \multirow{2}{*}{$\alpha_{1}$}
+%  & Lu & 0.5724 & 0.0049 & 0.0834 & 0.0070 & 0.5744 & 0.0029 & 0.0484 & 0.0023 \\
+%  & Yu & 0.5595 & 0.0178 & 0.1522 & 0.0234 & 0.5703 & 0.0070 & 0.0715 & 0.0052 \\
+
+% \multirow{2}{*}{$\alpha_{2}$}
+%  & Lu & 0.5704 & 0.0070 & 0.0839 & 0.0071 & 0.5765 & 0.0009 & 0.0494 & 0.0024 \\
+%  & Yu & 0.5057 & 0.0716 & 0.2878 & 0.0879 & 0.5696 & 0.0077 & 0.1074 & 0.0116 \\
+
+% \multirow{2}{*}{$\alpha_{3}$}
+%  & Lu & 0.5709 & 0.0065 & 0.0840 & 0.0071 & 0.5750 & 0.0024 & 0.0484 & 0.0023 \\
+%  & Yu & 0.5094 & 0.0679 & 0.2566 & 0.0704 & 0.5669 & 0.0104 & 0.1107 & 0.0124 \\
+
+% \multirow{2}{*}{$\beta_{1}$}
+%  & Lu & 1.0094 & $-0.0094$ & 0.0985 & 0.0098 & 1.0050 & $-0.0050$ & 0.0609 & 0.0037 \\
+%  & Yu & 1.0072 & $-0.0072$ & 0.0999 & 0.0100 & 1.0040 & $-0.0040$ & 0.0612 & 0.0038 \\
+
+% \multirow{2}{*}{$\beta_{2}$}
+%  & Lu & $-0.5003$ & 0.0003 & 0.1146 & 0.0131 & $-0.5002$ & 0.0002 & 0.0748 & 0.0056 \\
+%  & Yu & $-0.5004$ & 0.0004 & 0.1594 & 0.0254 & $-0.4998$ & $-0.0002$ & 0.1042 & 0.0108 \\
+% \bottomrule
+% \end{tabular}
+% \begin{tablenotes}
+% \footnotesize
+% \item $\boldsymbol{\alpha}_0 = (1/\sqrt{3}, 1/\sqrt{3}, 1/\sqrt{3})^\top$ and 
+% $\boldsymbol{\beta}_0 = (1, -0.5)$. Sample mean (Mean), bias, standard deviation (SD), and mean squared error (MSE) of the parameter estimates from the proposed spline-based estimator (Lu) and the penalized spline estimator of \cite{Yu2017} (Yu), based on 1000 Monte Carlo samples with sample sizes $n = 800$ and $n = 2000$, respectively.
+% \end{tablenotes}
+% \end{threeparttable}
+% \end{table}
+
+\begin{figure}[ht!]
+    \centering
+
+    %---- First Row (N=400)----%
+    \begin{subfigure}[t]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Poisson_phi_estimation_plot400_260423.pdf}
+        \caption{Poisson model ($n=400$)}
+        \label{fig:phi_pois_800}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Binomial_phi_estimation_plot400_260423.pdf}
+        \caption{Binomial model ($n=400$)}
+        \label{fig:phi_binom_800}
+    \end{subfigure}
+
+    %---- Second Row (N=800)----%
+    \begin{subfigure}[t]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Poisson_phi_estimation_plot800_260423.pdf}
+        \caption{Poisson model ($n=800$)}
+        \label{fig:phi_pois_800}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Binomial_phi_estimation_plot800_260423.pdf}
+        \caption{Binomial model ($n=800$)}
+        \label{fig:phi_binom_800}
+    \end{subfigure}
+    
+    %---- Third Row (N=2000) ----%
+    \begin{subfigure}[t]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Poisson_phi_estimation_plot2000_260423.pdf}
+        \caption{Poisson model ($n=2000$)}
+        \label{fig:phi_pois_2000}
+    \end{subfigure}
+    \hfill 
+    \begin{subfigure}[t]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Binomial_phi_estimation_plot2000_260423.pdf}
+        \caption{Binomial model ($n=2000$)}
+        \label{fig:phi_binom_2000}
+    \end{subfigure}
+    \vspace{0.5cm}
+    
+    
+    \caption{\textbf{Estimated Link Function.} 
+    Comparison of the true link function with the mean estimated link function and its pointwise 95\% confidence bands for Poisson and Binomial models. The left panels correspond to the Poisson model, while the right panels correspond to the Binomial model. Increasing the sample size from $n=400$, $n=800$, to $n=2000$ results in improved estimation accuracy and narrower confidence bands, illustrating the consistency and efficiency of the proposed method.}
+    
+    \label{fig:estimated_link_function_full}
+\end{figure}
+
+% \subsection*{Table 2: Results of the Variance Study}
+\begin{table}[ht!]
+\centering
+\begin{threeparttable}
+\caption{Results of variance study for a Poisson simulation.}
+\label{tab:variance_study_pois}
+\begin{tabular}{llcccccc}
+\toprule
+\multicolumn{8}{l}{Model} \\
+(Sample Size) & Parameter & emp.sd & se.mod & se.rob & se.lev & se.fin & cov.prob.mod \\
+\midrule
+Poisson & $\alpha_{1}$ & 0.0176 & 0.0175 & 0.0167 & 0.0181 & 0.0169 & 0.944 \\
+($n=400$) & $\alpha_{2}$ & 0.0178 & 0.0175 & 0.0168 & 0.0181 & 0.0170 & 0.951 \\
+ & $\alpha_{3}$ & 0.0180 & 0.0175 & 0.0167 & 0.0181 & 0.0169 & 0.946 \\
+ & $\beta_{1}$  & 0.0166 & 0.0158 & 0.0145 & 0.0168 & 0.0147 & 0.933 \\
+ & $\beta_{2}$  & 0.0346 & 0.0334 & 0.0323 & 0.0346 & 0.0327 & 0.951 \\
+\midrule
+Poisson & $\alpha_{1}$ & 0.0123 & 0.0121 & 0.0118 & 0.0124 & 0.0119 & 0.942 \\
+($n=800$) & $\alpha_{2}$ & 0.0125 & 0.0121 & 0.0118 & 0.0124 & 0.0119 & 0.939 \\
+ & $\alpha_{3}$ & 0.0123 & 0.0121 & 0.0118 & 0.0124 & 0.0119 & 0.940 \\
+ & $\beta_{1}$  & 0.0111 & 0.0107 & 0.0102 & 0.0112 & 0.0103 & 0.944 \\
+ & $\beta_{2}$  & 0.0235 & 0.0232 & 0.0227 & 0.0236 & 0.0229 & 0.959 \\
+\midrule
+Poisson & $\alpha_{1}$ & 0.0075 & 0.0076 & 0.0075 & 0.0076 & 0.0075 & 0.956 \\
+($n=2000$) & $\alpha_{2}$ & 0.0073 & 0.0076 & 0.0075 & 0.0076 & 0.0075 & 0.953 \\
+ & $\alpha_{3}$ & 0.0074 & 0.0076 & 0.0075 & 0.0076 & 0.0075 & 0.951 \\
+ & $\beta_{1}$  & 0.0065 & 0.0065 & 0.0064 & 0.0067 & 0.0064 & 0.954 \\
+ & $\beta_{2}$  & 0.0147 & 0.0145 & 0.0144 & 0.0146 & 0.0144 & 0.945 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\footnotesize
+\item Empirical standard deviation (emp.sd), model-based standard error (se.mod), robust sandwich standard error (se.rob), leverage-adjusted standard error (se.lev), finite-sample corrected standard error (se.fin), and coverage probability of the 95\% confidence interval based on the model-based variance estimator (cov.prob.mod) for $(\boldsymbol{\alpha}, \boldsymbol{\beta})$. Results are based on 1000 Monte Carlo samples with sample sizes $n = 400$, $n = 800$, and $n = 2000$.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+\begin{table}[ht!]
+\centering
+\begin{threeparttable}
+\caption{Results of variance study for a Binomial simulation.}
+\label{tab:variance_study_bino}
+\begin{tabular}{llcccccc}
+\toprule
+\multicolumn{8}{l}{Model} \\
+(Sample Size) & Parameter & emp.sd & se.mod & se.rob & se.lev & se.fin & cov.prob.mod \\
+\midrule
+Binomial & $\alpha_{1}$ & 0.1335 & 0.0993 & 0.0984 & 0.1011 & 0.0993 & 0.836 \\
+($n=400$) & $\alpha_{2}$ & 0.1389 & 0.0991 & 0.0984 & 0.1013 & 0.0993 & 0.850 \\
+ & $\alpha_{3}$ & 0.1310 & 0.0992 & 0.0984 & 0.1013 & 0.0994 & 0.855 \\
+ & $\beta_{1}$  & 0.1422 & 0.1395 & 0.1387 & 0.1415 & 0.1401 & 0.959 \\
+ & $\beta_{2}$  & 0.1647 & 0.1731 & 0.1718 & 0.1760 & 0.1735 & 0.963 \\
+\midrule
+Binomial & $\alpha_{1}$ & 0.0834 & 0.0751 & 0.0748 & 0.0759 & 0.0752 & 0.908 \\
+($n=800$) & $\alpha_{2}$ & 0.0839 & 0.0752 & 0.0749 & 0.0760 & 0.0753 & 0.915 \\
+ & $\alpha_{3}$ & 0.0840 & 0.0751 & 0.0749 & 0.0759 & 0.0753 & 0.914 \\
+ & $\beta_{1}$  & 0.0985 & 0.0974 & 0.0970 & 0.0981 & 0.0975 & 0.955 \\
+ & $\beta_{2}$  & 0.1146 & 0.1197 & 0.1193 & 0.1209 & 0.1199 & 0.968 \\
+\midrule
+Binomial & $\alpha_{1}$ & 0.0484 & 0.0480 & 0.0479 & 0.0481 & 0.0480 & 0.943 \\
+($n=2000$) & $\alpha_{2}$ & 0.0494 & 0.0478 & 0.0478 & 0.0480 & 0.0479 & 0.942 \\
+ & $\alpha_{3}$ & 0.0484 & 0.0479 & 0.0479 & 0.0481 & 0.0480 & 0.945 \\
+ & $\beta_{1}$  & 0.0609 & 0.0612 & 0.0611 & 0.0614 & 0.0613 & 0.959 \\
+ & $\beta_{2}$  & 0.0748 & 0.0746 & 0.0745 & 0.0748 & 0.0746 & 0.942 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\footnotesize
+\item Empirical standard deviation (emp.sd), model-based standard error (se.mod), robust sandwich standard error (se.rob), leverage-adjusted standard error (se.lev), finite-sample corrected standard error (se.fin), and coverage probability of the 95\% confidence interval based on the model-based variance estimator (cov.prob.mod) for $(\boldsymbol{\alpha}, \boldsymbol{\beta})$. Results are based on 1000 Monte Carlo samples with sample sizes $n = 400$, $n = 800$, and $n = 2000$.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+ 

@@ -1,0 +1,196 @@
+\section{Model and Algorithm}
+\subsection{Model}
+In this manuscript, we investigate penalized spline estimation for generalized partially linear single-index models (GPLSIMs). Given covariate vectors $\BX=\bx$ and $\BZ=\bz$, we assume that the conditional density of the response variable $Y$ belongs to an exponential family
+\begin{equation}
+	f(y|\bx,\bz) = \exp\left\{\frac{y\theta - b(\theta)}{\phi} + c(y,\phi)\right\}, \label{expfamily}
+\end{equation}
+for known functions $b(\cdot)$ and $c(\cdot)$, where $\theta=\theta(\bx,\bz)$ denotes the canonical parameter and $\phi$ is a scale parameter in generalized linear models (GLMs). Under this specification, the conditional mean is $\mu = b'(\theta)$ and the conditional variance satisfies $\text{var}(Y|\bx,\bz) = \phi b''(\theta) = \phi V(\mu)$, 
+where $V(\cdot)$ is the variance function (see McCullagh and Nelder 1989 for further details). The GPLSIM is formulated as
+\begin{eqnarray}\label{gplsim}
+	\tg\left\{\mu(\bx,\bz)\right\} = \Bb^\intercal\bx+\vp(\Ba^\intercal\bz),
+\end{eqnarray}
+where $\Ba\in\mathbb{R}^p$ and $\Bb\in\mathbb{R}^d$ denote the index parameter vector and the regression coefficient vector, respectively. The function $\vp(\cdot)$ is an unknown smooth function, and $\tg(\cdot)$ is a known link function, as in GLMs. When $\tg = (b')^{-1}$, the link is canonical. 
+
+It is well known that the index parameter vector $\Ba$ in model \eqref{gplsim} is not identifiable. A common remedy is to impose a normalization constraint. Specifically, we standardize $\Ba$ such that $\|\Ba\|=1$ and adopt a re-parameterization that removes this constraint by expressing
+$$
+\Ba_{\Be} = \frac{(1,\eta_1,\ldots,\eta_{p-1})^\intercal}{\sqrt{1+\|\Be\|^2}},
+\qquad
+\Be = (\eta_1,\ldots,\eta_{p-1})^\p,
+$$
+where $\|\cdot\|$ denotes the Euclidean norm. This re-parameterization enables unconstrained optimization; see the Appendix of Yu et al. (2017) for additional details. 
+
+Let $(y_1,\bx_1,\bz_1),\ldots,(y_n,\bx_n,\bz_n)$ be a random sample. Under the GPLSIM \eqref{gplsim}, the log-likelihood for the unknown parameter {\y vector} $\Btau = (\Bb^\p,\Be^\p,\vp)^\p$ is
+$$
+l(\Btau)
+=
+\sum_{i=1}^n \left\{\frac{y_i\theta_i - b(\theta_i)}{\phi} + c(y_i,\phi)\right\},
+$$
+where $\theta_i = \theta(\bx_i,\bz_i)$. Under the canonical link, $\theta_i = \Bb^\p\bx_i + \vp\big(\Ba_{\Be}^\p\bz_i\big)$. Penalized methods are widely used in semiparametric regression to regulate the smoothness of unknown functions and to mitigate overfitting; see, for example, Ma and Kosorok (2010), Lu and Li (2017), and Lu et al. (2022), among many others. Motivated by this, we estimate $\Btau$ by maximizing the penalized log-likelihood
+\begin{equation}
+	l_\lambda(\Btau) = l(\Btau) - \frac{1}{2\phi}\,\lambda J^2(\vp), \label{plik}
+\end{equation}
+where $\lambda>0$ is a (possibly data-dependent) smoothing parameter that governs the trade-off between model fidelity and smoothness of the fitted curve, and
+$
+J^2(\vp) = \ds\int \{\vp^{(m)}(u)\}^2du
+$
+is the roughness penalty for a fixed integer $m\ge 1$. 
+
+Direct maximization of the penalized log-likelihood \eqref{plik} is typically difficult, as it involves simultaneous estimation of regression parameters and an infinite-dimensional function. Following Lu and Loomis (2013), we approximate the {\y unknown} function $\vp(\cdot)$ using a constrained $B$-spline representation when $\vp(\cdot)$ is sufficiently smooth. Specifically,
+$$
+\vp(\cdot) \approx \vp_n(\cdot)
+=
+\sum_{j=1}^{q_n}\gamma_j s_j(\cdot)
+=
+\Bg^\p\bs(\cdot),
+$$
+where $\bs(\cdot) = (s_1(\cdot),\ldots,s_{q_n}(\cdot))^\p$ is the vector of $B$-spline basis functions and $\Bg = (\gamma_1,\ldots,\gamma_{q_n})^\p$ denotes the associated spline coefficients.
+
+
+Clearly, the spline function $\vp_n(\cdot)$ is identifiable only up to an additive constant. To ensure identifiability, we impose a sum-to-zero constraint on $\vp_n(\cdot)$, namely $\sum_{i=1}^n \vp_n(u_i) = \BS^\p\Bg = 0$ for $u_i = \Ba_{\Be}^\p\bz_i$, where $\BS = \sum_{i=1}^n \bs_i$ and $\bs_i = \bs(u_i) = \big(s_1(u_i),\ldots,s_{q_n}(u_i)\big)^\p$. To facilitate implementation, we re-parameterize the $q_n$ constrained spline coefficients $\Bg$ in terms of $(q_n-1)$ unconstrained parameters $\Bz = (\zeta_1,\ldots,\zeta_{q_n-1})^\p$. We achieve this through a QR-decomposition of $\BS$. {\y Specifically}, let $\BS = \BQ\BR$, where $\BQ$ is a $q_n\times q_n$ orthogonal matrix and $\BR$ is a $q_n\times 1$ upper triangular matrix. Partition $\BQ = (\BQ_1,\BQ_2)$, where $\BQ_2$ is a $q_n\times(q_n-1)$ matrix. Since $\BS^\p(\BQ_2\Bz) = 0$ for any $\Bz\in\mathbb{R}^{q_n-1}$, choosing $\Bg = \BQ_2\Bz$ automatically enforces the sum-to-zero constraint. It then follows that $\vp_n(u_i) = \Bg^\p\bs_i = \Bz^\p\bb_i$ for $\bb_i = \BQ_2^\p\bs_i$. For further discussion of re-parameterizing parameters subject to linear constraints, see Wood (2017).
+
+Under the above specifications, we obtain the spline model
+\begin{eqnarray}\label{psmodel}
+	\tg\{\mu(\bx_i,\bz_i)\} = \Bb^\p\bx_i + \Bz^\p\bb_i,
+\end{eqnarray}
+for $\bb_i = \BQ_2^\p\bs(\Ba_{\Be}^\p\bz_i)$. The full set of unknown parameters to be estimated is therefore $\Bt = (\Bb^\p,\Be^\p,\Bz^\p)^\p$. Under the spline approximation, where $\vp(\cdot)$ is replaced by $\vp_n(\cdot)$, the penalty matrix $J^2(\vp_n)$ becomes a band matrix whose $(k,l)$th element is $\int b_k^{(m)}(u)b_l^{(m)}(u)du$. To facilitate computation, we adopt the $P$-spline approach of Eilers and Marx (1996). In particular, the penalty matrix is approximated by $\BD^\p\BD$, where $\BD$ is the difference matrix generated by the $m$th-order difference operator $\Delta$. In both the simulation study and the real data analysis, we set $m=2$. Under this specification, the difference penalty term $\Bz^\p\BD^\p\BD\Bz$ simplifies to $\sum_{k=3}^{q_n-1}(\Delta^2\zeta_k)^2$, where $\Delta^2\zeta_k = \zeta_k - 2\zeta_{k-1} + \zeta_{k-2}$. The $P$-spline formulation provides considerable flexibility for penalized estimation and is easily implemented using standard software; see Wood (2017, p. 206) for additional details.
+
+Proceeding in this manner, we obtain the penalized spline log-likelihood for $\Bt$,
+\begin{equation}
+	l_\lambda(\Bt)
+	= \sum_{i=1}^n \left\{\frac{y_i\theta_i - b(\theta_i)}{\phi} + c(y_i;\theta_i)\right\}
+	- \frac{\lambda}{2\phi}\Bz^\p\BD^\p\BD\Bz.
+	\label{pspline}
+\end{equation}
+%where $\theta_i = \Bb^\p\bx_i + \Bz^\p\bb_i$ under the canonical link. 
+The penalized spline estimator $\wh\Bt = (\wh\Bb^\p,\wh\Be^\p,\wh\Bz^\p)^\p$ is defined as the maximizer of \eqref{pspline}, and the resulting estimator of $\psi(\cdot)$ is $\wh\vp(\cdot) = \vp_n(\cdot|\wh\Bz,\wh\Be)$. This penalized spline framework is straightforward to implement, as standard software can be used for model fitting. Moreover, the regression parameters $(\Bb,\Be)$ and the spline coefficients $\Bz$ are estimated jointly, making the procedure computationally efficient.
+
+
+
+%-------------------------------------Algorithm-------------------------------------
+\subsection{Algorithm}
+Let $\bb_i' = \BQ_2^\p(s_1'(u_i),\ldots,s_{q_n}'(u_i))^\p$
+for $u_i = \Ba_{\Be}^\p\bz_i$, where $s_j^\prime(\cdot)$ denotes the first derivative of $s_j(\cdot)$ for $1\le j\le q_n$. Define $\Bd_i = (\delta_{i1},\ldots,\delta_{i(p-1)})^\p$, where
+$$
+\delta_{il} = (1+\|\Be\|^2)^{-1/2} z_{i(l+1)} 
+- (1+\|\Be\|^2)^{-3/2}\eta_l\left(z_{i1} + \sum_{j=1}^{p-1} z_{i(j+1)}\eta_j\right),
+$$
+for $l=1,\ldots,p-1$. Let $\Bx_i = (\xi_{i1},\ldots,\xi_{i(p-1)})^\p$ with $\xi_{il} = \delta_{il}\Bz^\p\bb_i'$. Set
+$
+\BP = \mathrm{diag}\{\mathbf{0}_{(d+p-1)\times(d+p-1)},\BD^\p\BD\}$ and $\BE = (\BE_1,\ldots,\BE_n)^\p$, where $\BE_i = (\bx_i^\p,\Bx_i^\p,\bb_i^\p)^\p$. Also denote $\by = (y_1,\ldots,y_n)^\p$ and $\Bm = (\mu_1,\ldots,\mu_n)^\p$.
+
+To maximize the log-likelihood via the Fisher scoring method, we require the gradient vector and Fisher information matrix of $l_\lambda(\Bt)$. {\x Define $\BG_i = \partial\mu_i/\partial\Bt$. Clearly, $\BG_i = \tg^{\prime -1}(\mu_i)\BE_i$. Let $\BG = (\BG_1,\ldots,\BG_n)^\p$ and $\BV = \text{diag}\left\{V(\mu_1),\ldots,V(\mu_n)\right\}$}. 
+
+
+Under the above specifications, the score function and Fisher information matrix are\todo{$\BG^\p = \BE^\p\text{diag}\{\tg^{\prime-1}(\mu_i)\}$}
+$$
+\x\nabla l_\lambda(\Bt) = \phi^{-1}\BG^\p\BV^{-1}(\by-\Bm) - \phi^{-1}\lambda\BP\Bt
+$$
+and
+$$
+\x\BI_\lambda(\Bt) = \phi^{-1}\BG^\p\BV^{-1}\BG + \phi^{-1}\lambda\BP. 
+$$
+%respectively, where $\BG = \mathrm{diag}\{\tg^\prime(\mu_i)\}$ and $\BW = \mathrm{diag}\{V^{-1}(\mu_i)\tg^{\prime -2}(\mu_i)\}$. 
+Clearly $\BI_\lambda(\Bt)$ is positive definite. As discussed later in the proposed two-stage iterative algorithm, this property ensures that the updated smoothing parameter remains positive.
+
+To carry out the penalized estimation, we propose a two-stage iterative algorithm for obtaining the penalized spline estimator $\wh\Bt$. In the inner iteration, the current estimate $\Bt^{(l)}_\lambda$ is updated to $\Bt^{(l+1)}_\lambda$ using the Fisher scoring method with a step-halving line search. Specifically,
+\begin{equation}
+	\Bt^{(l+1)}_\lambda = \Bt^{(l)}_\lambda + (1/2)^k \D_\lambda^{(l)} \label{FS}
+\end{equation}
+for $\D_\lambda^{(l)} = \BI_\lambda^{-1}(\Bt^{(l)}_\lambda)\nabla l_\lambda(\Bt^{(l)}_\lambda)$, where $\BI_\lambda(\Bt^{(l)}_\lambda)$ and $\nabla l_\lambda(\Bt^{(l)}_\lambda)$ denote the Fisher information matrix and the score function evaluated at $\Bt^{(l)}_\lambda$, respectively. The integer $k$ is the smallest non-negative value satisfying
+$$
+l_\lambda\big(\Bt^{(l)}_\lambda + (1/2)^k \D_\lambda^{(l)}, \phi^{(l)}\big) > l_\lambda(\Bt^{(l)}_\lambda, \phi^{(l)}).
+$$
+Further, update $\phi$ using an adjusted Pearson statistic, namely,
+\begin{equation}\label{sigma}
+	\phi^{(l+1)} = \frac{1}{\rho}\sum_{i=1}^n \frac{(y_i - \wh\mu_i)^2}{V(\wh\mu_i)},
+\end{equation}
+where $\rho$ denotes the effective degrees of freedom in penalized estimation and is commonly used to correct bias in estimating $\phi$. An approximation for the effective degrees of freedom is $\x\rho = \mathrm{tr}\left\{\BI_\lambda(\Bt)^{-1}\BI(\Bt)\right\}$, where $\BI(\Bt) = \BI_\lambda(\Bt)\vert_{\lambda = 0}$; see Wood et al. (2016, pp.\ 1550) for further discussion of effective degrees of freedom in a general setting.
+
+During the outer iteration, the smoothing parameter $\lambda$ is updated using the generalized Fellner--Schall method (Wood and Fasiolo, 2017), namely,
+\begin{align}\label{lambda}
+	\overline{\lambda}
+	= \frac{\mathrm{tr}\{\BP_\lambda^{-}\BP\} - \mathrm{tr}\{\BI_\lambda^{-1}(\Bt^{(l+1)}_\lambda)\BP\}}
+	{\Bt_\lambda^{(l+1)\p}\BP\Bt^{(l+1)}_\lambda}\,\lambda,
+\end{align}
+where $\BP_\lambda^{-}$ is the generalized inverse of $\BP_\lambda = \lambda\BP$. Since $\BI_\lambda(\Bt^{(l+1)}_\lambda)$ is positive definite, Theorem 1 of Wood and Fasiolo (2017) ensures that the update of $\lambda$ in \eqref{lambda} is positive. Once $\lambda$ is updated, the inner iteration restarts to obtain updated estimates of $\Bt$ and $\phi$ for the new value $\overline{\lambda}$. The two-stage algorithm proceeds in this manner until convergence. The outline of the algorithm is summarized as follows:
+\vspace{-0.35cm}
+%------------------------------------
+\begin{description}%algorithm
+	\item [Step 0.] (a) Let $\Ba^{(0)}$ be the estimator of the linear model 
+	$
+	\tg\left\{E(Y_i|\bz_i,\bx_i)\right\}=\Bb^\p\bx_i + \Ba^\intercal\bz_i.
+	$
+	Standardize $\Ba^{(0)}$ as the initial estimator $\Ba_{\Be}^{(0)}$ for $\Ba_{\Be}$; (b) given the preliminary estimators of index values 
+	$\{u_i^{(0)} =  \bz_i^\intercal\Ba_{\Be}^{(0)}: i = 1,\ldots,n\}$, fit the generalized partially linear model for $(\Bb,\Bz)$ 
+	$$
+	\tg\left\{E(Y_i|\bz_i,\bx_i)\right\}=\Bb^\p\bx_i + \Bz^\intercal\bb_i^{(0)}	 
+	$$
+	to get $(\Bb^{(0)},\Bz^{(0)})$, where $\bb_i^{(0)} =\{b_1(u_i^{(0)}),\ldots,b_{q_n-1}(u_i^{(0)})\}^\intercal$; (c) calculate the initial value of $\phi$ via \eqref{sigma} and set the initial value of $\lambda$ to be 1. %\todo{Consider another method to get initial values}
+	\item [Step 1] (Inner iteration). For a given $\lambda>0$, update the current $\Bt^{(l)}_\lambda$ to $\Bt^{(l+1)}_\lambda$ through the Fisher's scoring approach \eqref{FS} and calculate $\phi$ via equation \eqref{sigma} at $\Bt = \Bt^{(l+1)}_\lambda$. 
+	\item [Step 2] (Outer iteration). Update $\lambda$ to $\overline\lambda$ through the generalized Fellner-Schall method via \eqref{lambda} and back to \textbf{Step 1} to identify $\Bt_{\overline\lambda}^{(l+1)}$.   
+	Repeat the iteration until $\|\Bt_{\overline\lambda}^{(l+1)}-\Bt_\lambda^{(l+1)}\|< 10^{-6}$. 
+	
+	As the algorithm converges, set $\wh\Bt = \Bt_{\ds\over\lambda}^{(l+1)}$ and $\wh\phi = \phi_{\overline\lambda}^{(l+1)}$ as the penalized spline estimator of $\Bt$ and $\phi$ and $\wh\vp(\cdot) = \vp_n(\cdot|\wh\Bz,\wh\Be)$ is the penalized spline estimator of $\vp(\cdot)$ accordingly. %The proposed penalized spline approach is easy to implement and the standard software can be applied for model fitting. Further, the regression parameters $(\Bb,\Bp)$ and the spline coefficients $\Bz$ can be estimated simultaneously, and hence, the procedure is computationally efficient. 
+	%At this point, we {\y obtain the maximizer of the spline log-likelihood function \eqref{slik}}.% \hl{How to incorporate the sum-to-zero constraint in the algorithm?}
+\end{description}
+
+
+\begin{description}
+	\item[Step 0.]  
+	(a) Let $\Ba^{(0)}$ be the estimator from the linear model  
+	\[
+	\tg\{E(Y_i|\bz_i,\bx_i)\} = \Bb^\p\bx_i + \Ba^\p\bz_i.
+	\]
+	Standardize $\Ba^{(0)}$ to obtain the initial estimator $\Ba_{\Be}^{(0)}$ for $\Ba_{\Be}$.  
+	(b) Given the preliminary index values $\{u_i^{(0)} = \bz_i^\p\Ba_{\Be}^{(0)}: i = 1,\ldots,n\}$, fit the generalized partially linear model for $(\Bb,\Bz)$  
+	$$
+	\tg\{E(Y_i|\bz_i,\bx_i)\} = \Bb^\p\bx_i + \Bz^\p\bb_i^{(0)}
+	$$
+	to obtain $(\Bb^{(0)},\Bz^{(0)})$, where $\bb_i^{(0)} = \{b_1(u_i^{(0)}),\ldots,b_{q_n-1}(u_i^{(0)})\}^\p$.  
+	(c) Compute the initial value of $\phi$ using \eqref{sigma} and set the initial value of $\lambda$ to 1.
+	
+	\item[Step 1.] (Inner iteration)  
+	For a given $\lambda>0$, update the current estimate $\Bt^{(l)}_\lambda$ to $\Bt^{(l+1)}_\lambda$ using the Fisher scoring update \eqref{FS}, and evaluate $\phi$ via \eqref{sigma} at $\Bt = \Bt^{(l+1)}_\lambda$.
+	
+	\item[Step 2.] (Outer iteration)  
+	Update $\lambda$ to $\overline\lambda$ using the generalized Fellner--Schall method \eqref{lambda}, then return to \textbf{Step 1} to compute $\Bt_{\overline\lambda}^{(l+1)}$.  
+	Repeat the iteration until  
+	$$
+	\|\Bt_{\overline\lambda}^{(l+1)} - \Bt_\lambda^{(l+1)}\| < 10^{-6}.
+	$$
+	As the algorithm converges, set $\wh\Bt = \Bt_{\overline\lambda}^{(l+1)}$ and $\wh\phi = \phi_{\overline\lambda}^{(l+1)}$ as the penalized spline estimators of $\Bt$ and $\phi$, respectively, and let $\wh\vp(\cdot) = \vp_n(\cdot|\wh\Bz,\wh\Be)$ be the corresponding penalized spline estimator of $\vp(\cdot)$.	
+\end{description}
+%-------------------------------------
+For practical computation, we implement the Fisher scoring update \eqref{FS} using weighted penalized least squares regression. In particular, define $\x\BX = \BV^{-1/2}\BG$, 
+where $\BV^{-1/2}$ is a square root of $\BV^{-1}$, that is, $\BV^{-1/2\p}\BV^{-1/2} = \BV^{-1}$. For given $\lambda$ and $\phi$, a single Fisher scoring update takes the form
+\begin{align*}
+	\Bt^{(l+1)}_\lambda = (\BX^\p\BX + \BP_\lambda)^{-1}\BX^\p\bz
+\end{align*}
+for $\bz = \BX\Bt^{(l)}_\lambda + \BV^{-1/2}(\by - \Bm)$. Hence, given $\lambda$ and $\phi$, the update $\Bt^{(l+1)}_\lambda$ minimizes the penalized least squares function
+\begin{equation}\label{pwls3}
+	\|\bz - \BX\Bt\|^2 + \Bt^\p\BP_\lambda\Bt,
+\end{equation}
+which can also be expressed as $\|\wt\bz - \wt\BX\Bt\|^2$, where $\wt\bz = (\bz^\p,\mathbf{0}^\p)^\p$ and $\wt\BX = (\BX^\p,\BP_\lambda^{1/2\p})^\p$ with $\BP_\lambda^{1/2\p}\BP_\lambda^{1/2} = \BP_\lambda$. In other words, the Fisher scoring update reduces to a standard linear regression problem. 
+
+To enhance numerical stability, an orthogonal matrix method based on pivoted QR decomposition of $\wt\BX$ can be used to solve the linear model. Specifically, write $\wt\BX = \BQ\colvec{\BR}{\mathbf{0}} = \BQ_f\BR$, where $\BQ$ is an orthogonal matrix and $\BR$ is a triangular matrix, and $\BQ_f$ consists of the first $(d + q_n + p - 2)$ columns of $\BQ$. It then follows that
+\[
+\wh\Bt = (\wt\BX^\p\wt\BX)^{-1}\wt\BX^\p\wt\bz = \BR^{-1}\BQ_f^\p\wt\bz
+\]
+is the least squares estimator of $\Bt$; see Wood (2016, p.\ 168) for additional details. %\todo{Discuss the performance of  the method, i.e.,  \# of iteration and rate of divergence}%The proposed two-stage iterative algorithm performed very well in our simulation settings. In particular, the issue of divergence is very uncommon, and the algorithm usually converges in a few steps by using the full spline estimator as the initial value. Further, the optimization procedure does not depend on the good starting value of $\lambda$. 
+
+
+
+
+%-------------------------------------------
+%\iffalse
+%\begin{remark}%remark
+%\end{remark}
+\subsection{\y Selection of the knots}\label{selection}
+%{\g We propose to adaptively  select the optimal number of spline knots using model selection criteria. In particular, in view of the rate of convergence of $\wh\psi(\cdot)$, the optimal number of knots is of order $n^{1/(1+2m)}$, where $m$ is the smoothing parameter of $\psi_0(\cdot)$. In our simulation and real application, $m$ is set to be 1. Thus, for a fixed $\lambda$, the optimal number of knots, $m_n^*$, is defined as the one that minimizes the AIC criterion, namely,
+	%\begin{equation}
+	%	\text{AIC} = -2l_{n,\lambda}(\wh\Bt,\wh\sigma^2;m_n)+2\text{df}_{fit}, 
+	%\end{equation}
+	%in a neighborhood of $n^{-1/3}$, say $n^{-1/3}\pm 2$. The location of knots is determined by equally-spaced quantile of $\Ba_{\Be}^\p\bz_i$ accordingly}. We expect that the penalized spline estimation is robust to the number of knots.  \hl{Perform a sensitivity analysis in simulation}. 		
+
+\subsection{\y Interpretation of the model}
+%\section{Goodness-of-fit} %{\h Chin-Shang will work on this section}  
