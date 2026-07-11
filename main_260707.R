@@ -21,5 +21,4 @@ usethis::use_git_remote("origin", url = NULL, overwrite = TRUE)
 usethis::use_github(private = TRUE)
 
 devtools::document()
-
 devtools::check()

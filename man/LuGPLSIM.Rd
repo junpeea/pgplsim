@@ -9,10 +9,12 @@ LuGPLSIM(
   X,
   Z,
   family = binomial(),
-  M = 80,
+  offset = NULL,
+  M = NULL,
   lambda = 1,
   maxit = 100,
-  tol = 1e-06
+  tol = 1e-06,
+  trace = FALSE
 )
 }
 \arguments{
@@ -22,16 +24,22 @@ LuGPLSIM(
 
 \item{Z}{Numeric matrix of single-index covariates.}
 
-\item{family}{A GLM family object. Currently supports \code{binomial()}, \code{poisson()},
-and \code{gaussian()}.}
+\item{family}{A GLM family object. Currently supports \code{binomial()} and
+\code{poisson()}.}
 
-\item{M}{Number of B-spline basis functions. Default is 80.}
+\item{offset}{Optional offset/exposure vector. For Poisson models, this is
+interpreted as an exposure C, so the offset is log(C).}
+
+\item{M}{Number of inner knots for the spline basis. If \code{NULL}, uses
+\code{ceiling(n^(1/3))}.}
 
 \item{lambda}{Initial smoothing parameter. Default is 1.}
 
-\item{maxit}{Maximum number of iterations. Default is 100.}
+\item{maxit}{Maximum number of Fisher-scoring iterations. Default is 100.}
 
 \item{tol}{Convergence tolerance. Default is 1e-6.}
+
+\item{trace}{Logical; if TRUE, prints iteration progress.}
 }
 \value{
 An object of class \code{"LuGPLSIM"}.
