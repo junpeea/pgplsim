@@ -22,3 +22,27 @@ usethis::use_github(private = TRUE)
 
 devtools::document()
 devtools::check()
+
+
+# I recommend this package-development workflow
+#
+# Every time you make changes:
+#
+#   cd C:\Users\yoonbaej\Documents\LuGPLSIM
+#
+# R
+#
+# Then in R:
+#
+#   devtools::document()
+# devtools::check()
+#
+# Back in Command Prompt:
+#
+#   git status
+# git add .
+# git commit -m "Describe what changed"
+# git pull origin master
+# git push
+
+# This sequence keeps your local repository and GitHub repository synchronized while ensuring the package still passes R CMD check before each push.
