@@ -39,11 +39,53 @@ LuGPLSIM <- function(
     trace = FALSE
 ) {
 
+  # ------------------------------------------------------------
+  # Validate response and design matrices
+  # ------------------------------------------------------------
+
   y <- as.numeric(y)
   X <- as.matrix(X)
   Z <- as.matrix(Z)
 
   n <- length(y)
+
+  if (nrow(X) != n || nrow(Z) != n) {
+    stop(
+      "Dimensions of y, X, and Z are incompatible.",
+      call. = FALSE
+    )
+  }
+
+  if (anyNA(y) || any(!is.finite(y))) {
+    stop(
+      "Response y must contain only finite, non-missing values.",
+      call. = FALSE
+    )
+  }
+
+  family_name <- family$family
+
+  if (identical(family_name, "binomial")) {
+    if (any(!y %in% c(0, 1))) {
+      stop(
+        "For the binomial family, y must contain only 0 and 1.",
+        call. = FALSE
+      )
+    }
+  }
+
+  if (identical(family_name, "poisson")) {
+    if (any(y < 0) || any(y != floor(y))) {
+      stop(
+        paste0(
+          "For the Poisson family, y must contain ",
+          "non-negative integer counts."
+        ),
+        call. = FALSE
+      )
+    }
+  }
+
   nBeta <- ncol(X)
   nAlpha <- ncol(Z)
 
@@ -274,16 +316,66 @@ LuGPLSIM <- function(
   )
 
   u_hat <- final_basis$u
+  B_hat <- final_basis$B
+  BD_hat <- final_basis$BD
   BB_hat <- final_basis$BB
+  BBD_hat <- final_basis$BBD
+
   knots <- final_basis$knots
   Q2 <- final_basis$Q2
+  ord <- final_basis$ord
+  outer_ok <- final_basis$outer_ok
 
-  linear_predictor <- as.numeric(X %*% beta + BB_hat %*% gamma)
+  # Save everything required to reproduce the exact transformed
+  # spline basis for future observations.
+  basis_spec <- list(
+    basis_function = "splineDesign",
+    knots = knots,
+    ord = ord,
+    outer_ok = outer_ok,
+    Q2 = Q2,
+    lower_boundary = min(knots),
+    upper_boundary = max(knots),
+    n_raw_basis = ncol(B_hat),
+    n_transformed_basis = ncol(BB_hat),
+    family_name = fam
+  )
+
+  if (ncol(BB_hat) != length(gamma)) {
+    stop(
+      paste0(
+        "The final transformed spline basis has ",
+        ncol(BB_hat),
+        " columns, but gamma has length ",
+        length(gamma),
+        "."
+      ),
+      call. = FALSE
+    )
+  }
+
+  smooth_component <- as.numeric(
+    BB_hat %*% gamma
+  )
+
+  linear_component <- as.numeric(
+    X %*% beta
+  )
+
+  linear_predictor <- linear_component +
+    smooth_component
 
   if (fam == "binomial") {
-    mu_hat <- stats::plogis(linear_predictor)
+    mu_hat <- stats::plogis(
+      linear_predictor
+    )
   } else {
-    mu_hat <- C * exp(pmin(pmax(linear_predictor, -30), 30))
+    mu_hat <- C * exp(
+      pmin(
+        pmax(linear_predictor, -30),
+        30
+      )
+    )
   }
 
   ############################################################
@@ -315,9 +407,23 @@ LuGPLSIM <- function(
       gamma_hat = gamma,
       eta_hat = theta[seq_len(p_theta)],
       u_hat = u_hat,
+
+      # Final spline objects corresponding exactly to gamma_hat
+      B_hat = B_hat,
+      BD_hat = BD_hat,
       BB_hat = BB_hat,
+      BBD_hat = BBD_hat,
+
+      # Preferred standardized names for prediction methods
+      basis_matrix = BB_hat,
+      basis_derivative_matrix = BBD_hat,
+      basis_spec = basis_spec,
+
+      # Retained for backward compatibility
       knots = knots,
       Q2 = Q2,
+      ord = ord,
+      outer_ok = outer_ok,
       lambda = lambda_current,
       family = family,
       offset = if (fam == "poisson") C else NULL,
@@ -337,6 +443,8 @@ LuGPLSIM <- function(
         trace = trace
       ),
 
+      linear_component = linear_component,
+      smooth_component = smooth_component,
       fitted_link = linear_predictor,
       linear_predictors = linear_predictor,
       fitted_mean = mu_hat,

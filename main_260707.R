@@ -21,8 +21,14 @@ usethis::use_git_remote("origin", url = NULL, overwrite = TRUE)
 usethis::use_github(private = TRUE)
 
 devtools::document()
-devtools::check()
+devtools::load_all()
+devtools::test()
 
+usethis::use_testthat(edition = 3)
+
+devtools::test(
+  filter = "predict"
+)
 
 # I recommend this package-development workflow
 #
@@ -41,7 +47,7 @@ devtools::check()
 #
 #   git status
 # git add .
-# git commit -m "Describe what changed"
+# git commit -m "renamed exported functions"
 # git pull origin master
 # git push
 
