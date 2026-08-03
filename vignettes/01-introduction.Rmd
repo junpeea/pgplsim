@@ -1,0 +1,323 @@
+---
+title: "Introduction to PSPLINE"
+author: "Yoon-Bae Jun"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{Introduction to PSPLINE}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+# Overview
+
+`PSPLINE` fits generalized partially linear single-index models of the form
+
+\[
+g\{E(Y_i\mid X_i,Z_i)\}
+=
+X_i^\top\beta+\phi(Z_i^\top\alpha),
+\]
+
+where \(X_i\) enters linearly, \(Z_i\) enters through a single index, and
+\(\phi(\cdot)\) is an unknown smooth function estimated using penalized
+splines. The package normalizes \(\alpha\) so that \(\|\alpha\|=1\) and its
+first component is positive. The current implementation supports binomial and
+Poisson outcomes.
+
+# Installation
+
+```{r installation, eval=FALSE}
+remotes::install_github("junpeea/PSPLINE")
+```
+
+```{r load-package}
+library(PSPLINE)
+```
+
+# A binomial example
+
+## Simulate data
+
+```{r simulate-binomial}
+set.seed(2026)
+
+n <- 250
+
+Z <- cbind(
+  z1 = runif(n, 0, 2),
+  z2 = runif(n, 0, 2),
+  z3 = runif(n, 0, 2)
+)
+
+X <- cbind(
+  x1 = rnorm(n),
+  x2 = rbinom(n, 1, 0.5)
+)
+
+alpha_true <- c(1, 1, 1) / sqrt(3)
+beta_true <- c(0.8, -0.5)
+
+u_true <- as.numeric(Z %*% alpha_true)
+phi_true <- sin(2 * u_true)
+phi_true <- phi_true - mean(phi_true)
+
+eta_true <- as.numeric(X %*% beta_true + phi_true)
+probability <- plogis(eta_true)
+y <- rbinom(n, size = 1, prob = probability)
+
+mean(y)
+```
+
+## Fit the model
+
+```{r fit-binomial}
+fit_binomial <- LuGPLSIM(
+  y = y,
+  X = X,
+  Z = Z,
+  family = binomial(),
+  M = 4,
+  maxit = 50,
+  tol = 1e-6
+)
+```
+
+```{r print-and-summary}
+fit_binomial
+summary(fit_binomial)
+```
+
+Check the identifiability constraint:
+
+```{r alpha-constraint}
+sum(fit_binomial$alpha_hat^2)
+fit_binomial$alpha_hat[1]
+```
+
+# Prediction components
+
+```{r prediction-components}
+u_hat <- predict(
+  fit_binomial,
+  newX = X,
+  newZ = Z,
+  type = "index"
+)
+
+smooth_hat <- predict(
+  fit_binomial,
+  newX = X,
+  newZ = Z,
+  type = "smooth"
+)
+
+linear_hat <- predict(
+  fit_binomial,
+  newX = X,
+  newZ = Z,
+  type = "linear"
+)
+
+eta_hat <- predict(
+  fit_binomial,
+  newX = X,
+  newZ = Z,
+  type = "link"
+)
+
+probability_hat <- predict(
+  fit_binomial,
+  newX = X,
+  newZ = Z,
+  type = "response"
+)
+
+head(cbind(u_hat, smooth_hat, linear_hat, eta_hat, probability_hat))
+range(probability_hat)
+```
+
+# Plot the nonlinear component
+
+```{r plot-method}
+plot(fit_binomial)
+```
+
+A direct plot can also be created from the prediction methods:
+
+```{r custom-plot}
+ordering <- order(u_hat)
+
+plot(
+  u_hat[ordering],
+  smooth_hat[ordering],
+  type = "l",
+  xlab = expression(hat(u) == Z^T * hat(alpha)),
+  ylab = expression(hat(phi)(hat(u))),
+  main = "Estimated single-index smooth"
+)
+```
+
+# Variance estimation
+
+```{r vcov-model}
+V_model <- vcov(
+  fit_binomial,
+  type = "model",
+  component = "parameters"
+)
+
+dim(V_model)
+round(V_model, 4)
+```
+
+Separate blocks are available:
+
+```{r vcov-blocks}
+V_alpha <- vcov(
+  fit_binomial,
+  type = "model",
+  component = "alpha"
+)
+
+V_beta <- vcov(
+  fit_binomial,
+  type = "model",
+  component = "beta"
+)
+
+dim(V_alpha)
+dim(V_beta)
+```
+
+The sandwich covariance is obtained with:
+
+```{r vcov-sandwich}
+V_sandwich <- vcov(
+  fit_binomial,
+  type = "sandwich",
+  component = "parameters"
+)
+
+dim(V_sandwich)
+```
+
+Leverage-adjusted and finite-sample-corrected covariance estimators are also
+available:
+
+```{r vcov-adjusted, eval=FALSE}
+vcov(fit_binomial, type = "leverage", component = "parameters")
+vcov(fit_binomial, type = "finite", component = "parameters")
+```
+
+# Bootstrap inference
+
+The following code is not evaluated during vignette construction because a
+substantive bootstrap can be computationally intensive.
+
+```{r bootstrap-example, eval=FALSE}
+boot_binomial <- bootstrap_LuGPLSIM(
+  object = fit_binomial,
+  B = 500,
+  method = "stratified",
+  seed = 2026,
+  trace = TRUE
+)
+
+boot_binomial
+
+V_bootstrap <- vcov(
+  fit_binomial,
+  type = "bootstrap",
+  component = "parameters",
+  bootstrap = boot_binomial
+)
+```
+
+# Poisson example with exposure
+
+For Poisson models, `offset` is a positive exposure vector on its original
+scale. The function internally uses its logarithm as the GLM offset.
+
+```{r simulate-poisson}
+set.seed(2027)
+
+n_pois <- 250
+
+Z_pois <- cbind(
+  z1 = runif(n_pois, 0, 2),
+  z2 = runif(n_pois, 0, 2),
+  z3 = runif(n_pois, 0, 2)
+)
+
+X_pois <- cbind(
+  x1 = rnorm(n_pois),
+  x2 = rbinom(n_pois, 1, 0.5)
+)
+
+exposure <- runif(n_pois, 1, 4)
+
+alpha_pois <- c(1, 1, 1) / sqrt(3)
+beta_pois <- c(0.35, -0.25)
+
+u_pois <- as.numeric(Z_pois %*% alpha_pois)
+phi_pois <- 0.4 * sin(2 * u_pois)
+phi_pois <- phi_pois - mean(phi_pois)
+
+eta_pois <- as.numeric(X_pois %*% beta_pois + phi_pois)
+mu_pois <- exposure * exp(eta_pois)
+y_pois <- rpois(n_pois, lambda = mu_pois)
+```
+
+```{r fit-poisson}
+fit_poisson <- LuGPLSIM(
+  y = y_pois,
+  X = X_pois,
+  Z = Z_pois,
+  family = poisson(),
+  offset = exposure,
+  M = 4,
+  maxit = 50,
+  tol = 1e-6
+)
+```
+
+```{r predict-poisson}
+mu_hat_pois <- predict(
+  fit_poisson,
+  newX = X_pois,
+  newZ = Z_pois,
+  type = "response",
+  offset = exposure
+)
+
+range(mu_hat_pois)
+```
+
+# Practical recommendations
+
+1. Standardize continuous columns of \(X\) and \(Z\) when their scales differ substantially.
+2. Keep the same coding, column order, and standardization when predicting new observations.
+3. Use model-based covariance for routine summaries and bootstrap inference when uncertainty in the index direction is especially important.
+4. Avoid extrapolating far beyond the training range of the fitted single index.
+5. Run `devtools::test()` and `devtools::check()` before committing package changes.
+
+# Session information
+
+```{r session-info}
+sessionInfo()
+```

@@ -1,0 +1,409 @@
+---
+title: "NHANES Diabetes Analysis with PSPLINE"
+author: "Yoon-Bae Jun"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{NHANES Diabetes Analysis with PSPLINE}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5,
+  warning = FALSE,
+  message = FALSE
+)
+
+has_nhanes <- requireNamespace("NHANES", quietly = TRUE)
+has_mgcv <- requireNamespace("mgcv", quietly = TRUE)
+```
+
+# Purpose
+
+This vignette demonstrates a binary-outcome analysis using data distributed
+with the optional `NHANES` R package. Diabetes status is modeled using:
+
+- a linear demographic component;
+- a nonlinear metabolic single-index component;
+- model summaries, predicted probabilities, and comparison models.
+
+This is a reproducible package illustration rather than a definitive
+epidemiologic analysis. Population-level NHANES inference should incorporate
+survey weights, strata, and primary sampling units. The current `PSPLINE`
+implementation does not yet fit complex-survey-weighted models.
+
+# Load the package
+
+```{r load-package}
+library(PSPLINE)
+```
+
+```{r package-availability}
+if (!has_nhanes) {
+  cat(
+    "The optional NHANES package is not installed. ",
+    "Install it with install.packages('NHANES') to run this vignette."
+  )
+}
+```
+
+# Load and inspect NHANES
+
+```{r load-nhanes, eval=has_nhanes}
+data("NHANES", package = "NHANES")
+
+dim(NHANES)
+names(NHANES)[1:20]
+```
+
+The vignette checks that the variables used below are available.
+
+```{r required-variables, eval=has_nhanes}
+required_variables <- c(
+  "Diabetes",
+  "Age",
+  "Gender",
+  "Race1",
+  "BMI",
+  "BPSysAve",
+  "DirectChol"
+)
+
+missing_variables <- setdiff(
+  required_variables,
+  names(NHANES)
+)
+
+if (length(missing_variables) > 0L) {
+  stop(
+    paste0(
+      "The installed NHANES data set is missing: ",
+      paste(missing_variables, collapse = ", "),
+      "."
+    )
+  )
+}
+```
+
+# Construct the analysis sample
+
+```{r prepare-data, eval=has_nhanes}
+nhanes_analysis <- NHANES[, required_variables]
+
+nhanes_analysis <- nhanes_analysis[
+  stats::complete.cases(nhanes_analysis),
+]
+
+nhanes_analysis$diabetes_binary <- ifelse(
+  as.character(nhanes_analysis$Diabetes) == "Yes",
+  1,
+  0
+)
+
+table(nhanes_analysis$diabetes_binary)
+nrow(nhanes_analysis)
+```
+
+# Define the linear and index components
+
+The linear component includes age, gender, and race/ethnicity. The metabolic
+single index includes body mass index, average systolic blood pressure, and
+direct cholesterol.
+
+```{r design-matrices, eval=has_nhanes}
+X_raw <- model.matrix(
+  ~ Age + Gender + Race1,
+  data = nhanes_analysis
+)
+
+# Remove the model-matrix intercept because the current PSPLINE
+# formulation uses the supplied columns directly.
+X_raw <- X_raw[, -1, drop = FALSE]
+
+Z_raw <- cbind(
+  BMI = nhanes_analysis$BMI,
+  BPSysAve = nhanes_analysis$BPSysAve,
+  DirectChol = nhanes_analysis$DirectChol
+)
+
+X <- scale(X_raw)
+Z <- scale(Z_raw)
+y <- nhanes_analysis$diabetes_binary
+
+dim(X)
+dim(Z)
+```
+
+Save the training centers and scales for future prediction:
+
+```{r scaling-information, eval=has_nhanes}
+X_center <- attr(X, "scaled:center")
+X_scale <- attr(X, "scaled:scale")
+
+Z_center <- attr(Z, "scaled:center")
+Z_scale <- attr(Z, "scaled:scale")
+```
+
+# Fit PSPLINE
+
+```{r fit-pspline, eval=has_nhanes}
+fit_nhanes <- LuGPLSIM(
+  y = y,
+  X = X,
+  Z = Z,
+  family = binomial(),
+  M = 4,
+  maxit = 100,
+  tol = 1e-6
+)
+
+fit_nhanes
+summary(fit_nhanes)
+```
+
+# Interpret the estimated index
+
+```{r index-coefficients, eval=has_nhanes}
+data.frame(
+  variable = names(fit_nhanes$alpha_hat),
+  alpha = as.numeric(fit_nhanes$alpha_hat),
+  model_se = as.numeric(fit_nhanes$se_alpha),
+  row.names = NULL
+)
+```
+
+Because the three index variables were standardized, their coefficient
+magnitudes are directly comparable. The sign of an index coefficient must be
+interpreted together with the estimated smooth function. The package fixes the
+first component of \(\alpha\) to be positive for identifiability.
+
+# Plot the estimated nonlinear association
+
+```{r nonlinear-plot, eval=has_nhanes}
+u_hat <- predict(
+  fit_nhanes,
+  newX = X,
+  newZ = Z,
+  type = "index"
+)
+
+smooth_hat <- predict(
+  fit_nhanes,
+  newX = X,
+  newZ = Z,
+  type = "smooth"
+)
+
+ordering <- order(u_hat)
+
+plot(
+  u_hat[ordering],
+  smooth_hat[ordering],
+  type = "l",
+  lwd = 2,
+  xlab = "Estimated metabolic index",
+  ylab = "Estimated smooth component",
+  main = "Estimated nonlinear diabetes-risk function"
+)
+
+rug(u_hat)
+```
+
+# Predicted probabilities
+
+```{r predicted-probabilities, eval=has_nhanes}
+predicted_probability <- predict(
+  fit_nhanes,
+  newX = X,
+  newZ = Z,
+  type = "response"
+)
+
+summary(predicted_probability)
+range(predicted_probability)
+```
+
+A simple apparent classification summary at threshold 0.5 is:
+
+```{r classification, eval=has_nhanes}
+predicted_class <- as.integer(
+  predicted_probability >= 0.5
+)
+
+classification_table <- table(
+  observed = y,
+  predicted = predicted_class
+)
+
+classification_table
+mean(predicted_class == y)
+```
+
+This is an in-sample summary and will generally be optimistic. Use
+cross-validation or external validation for predictive assessment.
+
+# Compare with logistic regression
+
+A conventional logistic model treats the metabolic variables as linear terms.
+
+```{r fit-glm, eval=has_nhanes}
+glm_data <- data.frame(
+  y = y,
+  X,
+  Z,
+  check.names = FALSE
+)
+
+fit_glm <- glm(
+  y ~ .,
+  data = glm_data,
+  family = binomial()
+)
+
+summary(fit_glm)
+```
+
+```{r compare-loglik, eval=has_nhanes}
+data.frame(
+  model = c(
+    "PSPLINE",
+    "Logistic regression"
+  ),
+  log_likelihood = c(
+    fit_nhanes$logLik,
+    as.numeric(logLik(fit_glm))
+  )
+)
+```
+
+These values should be interpreted cautiously because the penalized smooth has
+effective degrees of freedom that are not represented by a simple raw
+parameter count.
+
+# Optional generalized additive model
+
+If `mgcv` is installed, a GAM can estimate separate smooth functions of the
+three metabolic variables.
+
+```{r fit-gam, eval=has_nhanes && has_mgcv}
+gam_data <- data.frame(
+  y = y,
+  age = as.numeric(scale(nhanes_analysis$Age)),
+  gender = nhanes_analysis$Gender,
+  race = nhanes_analysis$Race1,
+  bmi = as.numeric(scale(nhanes_analysis$BMI)),
+  bp = as.numeric(scale(nhanes_analysis$BPSysAve)),
+  cholesterol = as.numeric(scale(nhanes_analysis$DirectChol))
+)
+
+fit_gam <- mgcv::gam(
+  y ~ age + gender + race +
+    s(bmi) + s(bp) + s(cholesterol),
+  data = gam_data,
+  family = binomial(),
+  method = "REML"
+)
+
+summary(fit_gam)
+```
+
+The models have different interpretations: the GAM estimates three separate
+smooth effects, whereas PSPLINE estimates one nonlinear function of a weighted
+metabolic index.
+
+# Uncertainty estimation
+
+```{r uncertainty, eval=has_nhanes}
+V_model <- vcov(
+  fit_nhanes,
+  type = "model",
+  component = "parameters"
+)
+
+V_sandwich <- vcov(
+  fit_nhanes,
+  type = "sandwich",
+  component = "parameters"
+)
+
+c(
+  model_dimension = nrow(V_model),
+  sandwich_dimension = nrow(V_sandwich)
+)
+```
+
+# Optional bootstrap inference
+
+```{r bootstrap-nhanes, eval=FALSE}
+boot_nhanes <- bootstrap_LuGPLSIM(
+  object = fit_nhanes,
+  B = 500,
+  method = "stratified",
+  seed = 2026,
+  max_attempts = 800,
+  trace = TRUE
+)
+
+data.frame(
+  variable = names(fit_nhanes$alpha_hat),
+  estimate = fit_nhanes$alpha_hat,
+  model_se = fit_nhanes$se_alpha,
+  bootstrap_se = boot_nhanes$se_alpha
+)
+```
+
+# Prediction for new participants
+
+Use the same factor coding, design-matrix columns, centers, and scales that were
+used for the training sample.
+
+```{r new-data-prediction, eval=FALSE}
+new_X_raw <- model.matrix(
+  ~ Age + Gender + Race1,
+  data = new_participants
+)[, -1, drop = FALSE]
+
+new_Z_raw <- cbind(
+  BMI = new_participants$BMI,
+  BPSysAve = new_participants$BPSysAve,
+  DirectChol = new_participants$DirectChol
+)
+
+new_X <- sweep(new_X_raw, 2, X_center, FUN = "-")
+new_X <- sweep(new_X, 2, X_scale, FUN = "/")
+
+new_Z <- sweep(new_Z_raw, 2, Z_center, FUN = "-")
+new_Z <- sweep(new_Z, 2, Z_scale, FUN = "/")
+
+new_probability <- predict(
+  fit_nhanes,
+  newX = new_X,
+  newZ = new_Z,
+  type = "response"
+)
+```
+
+Factor levels and design-matrix columns must match the fitted model.
+
+# Limitations
+
+1. The example does not incorporate the NHANES survey design.
+2. It uses complete-case analysis.
+3. It reports apparent rather than externally validated performance.
+4. It does not establish causal effects.
+5. It assumes that one smooth function of a single metabolic index adequately
+   represents the joint nonlinear association.
+
+# Session information
+
+```{r session-info}
+sessionInfo()
+```

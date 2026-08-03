@@ -5,7 +5,12 @@
 #' Fit a Generalized Partially Linear Single-Index Model
 #'
 #' Fits a generalized partially linear single-index model of the form
-#' g(E[Y | X, Z]) = X beta + phi(Z alpha).
+#'
+#' \deqn{
+#' g\{E(Y \mid X,Z)\}
+#' =
+#' X^\top \beta + \phi(Z^\top \alpha).
+#' }
 #'
 #' @param y Numeric response vector.
 #' @param X Numeric matrix of linear covariates.
@@ -433,6 +438,9 @@ LuGPLSIM <- function(
       X = X,
       Z = Z,
 
+      linear_component = linear_component,
+      smooth_component = smooth_component,
+
       # Fitting controls retained for bootstrap refitting
       control = list(
         M = M,
@@ -443,8 +451,6 @@ LuGPLSIM <- function(
         trace = trace
       ),
 
-      linear_component = linear_component,
-      smooth_component = smooth_component,
       fitted_link = linear_predictor,
       linear_predictors = linear_predictor,
       fitted_mean = mu_hat,

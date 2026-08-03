@@ -46,5 +46,11 @@ An object of class \code{"LuGPLSIM"}.
 }
 \description{
 Fits a generalized partially linear single-index model of the form
-g(E\link{Y | X, Z}) = X beta + phi(Z alpha).
+}
+\details{
+\deqn{
+g\{E(Y \mid X,Z)\}
+=
+X^\top \beta + \phi(Z^\top \alpha).
+}
 }

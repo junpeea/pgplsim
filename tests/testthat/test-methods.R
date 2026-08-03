@@ -33,3 +33,31 @@ test_that("print and summary methods run without errors", {
     "Index component"
   )
 })
+
+test_that("plot method runs without error", {
+
+  dat <- make_binomial_test_data()
+
+  fit <- LuGPLSIM(
+    y = dat$y,
+    X = dat$X,
+    Z = dat$Z,
+    family = binomial(),
+    M = 4,
+    maxit = 30
+  )
+
+  temporary_pdf <- tempfile(
+    fileext = ".pdf"
+  )
+
+  grDevices::pdf(temporary_pdf)
+
+  expect_no_error(
+    plot(fit)
+  )
+
+  grDevices::dev.off()
+
+  unlink(temporary_pdf)
+})
