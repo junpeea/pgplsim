@@ -217,10 +217,6 @@ help(package="PSPLINE")
 
 ## Citation
 
-If you use **PSPLINE** in published work, please cite
-
-> Jun, Y.-B. (2026). **PSPLINE: Penalized Spline Estimation for Generalized Partially Linear Single-Index Models**. R package.
-
 A formal software paper is currently under preparation.
 
 ---
