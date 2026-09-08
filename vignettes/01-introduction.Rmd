@@ -36,14 +36,37 @@ X_i^\top\beta+\phi(Z_i^\top\alpha),
 where \(X_i\) enters linearly, \(Z_i\) enters through a single index, and
 \(\phi(\cdot)\) is an unknown smooth function estimated using penalized
 splines. The package normalizes \(\alpha\) so that \(\|\alpha\|=1\) and its
-first component is positive. The current implementation supports binomial and
-Poisson outcomes.
+first component is positive.
+
+The current implementation supports binomial and Poisson outcomes.
+
+The public fitting interface follows standard R modeling conventions:
+
+```r
+pgplsim(
+  formula,
+  index,
+  data,
+  family = binomial(),
+  offset = NULL,
+  M = NULL,
+  lambda = 1,
+  control = pgplsim_control()
+)
+```
+
+Here, `formula` specifies the response and linear component, while `index`
+specifies the variables entering the single-index component.
 
 # Installation
+
+The development version can be installed from GitHub with:
 
 ```{r installation, eval=FALSE}
 remotes::install_github("junpeea/pgplsim")
 ```
+
+Load the package with:
 
 ```{r load-package}
 library(pgplsim)
@@ -53,18 +76,17 @@ library(pgplsim)
 
 ## Simulate data
 
+We first simulate a binary outcome from a partially linear single-index model.
+
 ```{r simulate-binomial}
 set.seed(2026)
 
 n <- 250
 
-Z <- cbind(
+dat_binomial <- data.frame(
   z1 = runif(n, 0, 2),
   z2 = runif(n, 0, 2),
-  z3 = runif(n, 0, 2)
-)
-
-X <- cbind(
+  z3 = runif(n, 0, 2),
   x1 = rnorm(n),
   x2 = rbinom(n, 1, 0.5)
 )
@@ -72,92 +94,138 @@ X <- cbind(
 alpha_true <- c(1, 1, 1) / sqrt(3)
 beta_true <- c(0.8, -0.5)
 
+Z <- as.matrix(dat_binomial[, c("z1", "z2", "z3")])
+X <- as.matrix(dat_binomial[, c("x1", "x2")])
+
 u_true <- as.numeric(Z %*% alpha_true)
+
 phi_true <- sin(2 * u_true)
 phi_true <- phi_true - mean(phi_true)
 
-eta_true <- as.numeric(X %*% beta_true + phi_true)
-probability <- plogis(eta_true)
-y <- rbinom(n, size = 1, prob = probability)
+eta_true <- as.numeric(
+  X %*% beta_true + phi_true
+)
 
-mean(y)
+probability <- plogis(eta_true)
+
+dat_binomial$y <- rbinom(
+  n,
+  size = 1,
+  prob = probability
+)
+
+mean(dat_binomial$y)
 ```
 
 ## Fit the model
 
+The linear component is specified through `formula`, and the single-index
+component is specified separately through `index`.
+
 ```{r fit-binomial}
-fit_binomial <- LuGPLSIM(
-  y = y,
-  X = X,
-  Z = Z,
+fit_binomial <- pgplsim(
+  y ~ x1 + x2,
+  index = ~ z1 + z2 + z3,
+  data = dat_binomial,
   family = binomial(),
   M = 4,
-  maxit = 50,
-  tol = 1e-6
+  control = pgplsim_control(
+    maxit = 50,
+    tol = 1e-6
+  )
 )
 ```
+
+The usual print and summary methods are available:
 
 ```{r print-and-summary}
 fit_binomial
 summary(fit_binomial)
 ```
 
-Check the identifiability constraint:
+The fitted index direction is normalized for identifiability:
 
 ```{r alpha-constraint}
 sum(fit_binomial$alpha_hat^2)
 fit_binomial$alpha_hat[1]
 ```
 
+The first quantity should be close to 1, and the first component of
+`alpha_hat` should be positive.
+
 # Prediction components
+
+Predictions follow the standard R `newdata` convention. The package can return
+the estimated index, nonlinear smooth component, linear component, full linear
+predictor, or response-scale fitted value.
 
 ```{r prediction-components}
 u_hat <- predict(
   fit_binomial,
-  newX = X,
-  newZ = Z,
+  newdata = dat_binomial,
   type = "index"
 )
 
 smooth_hat <- predict(
   fit_binomial,
-  newX = X,
-  newZ = Z,
+  newdata = dat_binomial,
   type = "smooth"
 )
 
 linear_hat <- predict(
   fit_binomial,
-  newX = X,
-  newZ = Z,
+  newdata = dat_binomial,
   type = "linear"
 )
 
 eta_hat <- predict(
   fit_binomial,
-  newX = X,
-  newZ = Z,
+  newdata = dat_binomial,
   type = "link"
 )
 
 probability_hat <- predict(
   fit_binomial,
-  newX = X,
-  newZ = Z,
+  newdata = dat_binomial,
   type = "response"
 )
 
-head(cbind(u_hat, smooth_hat, linear_hat, eta_hat, probability_hat))
+head(
+  cbind(
+    u_hat,
+    smooth_hat,
+    linear_hat,
+    eta_hat,
+    probability_hat
+  )
+)
+
 range(probability_hat)
 ```
 
+For predictions on the original fitting sample, `newdata` may be omitted:
+
+```{r prediction-in-sample}
+head(
+  predict(
+    fit_binomial,
+    type = "response"
+  )
+)
+```
+
+The package also retains `newX` and `newZ` as a backward-compatible,
+lower-level prediction interface. For new code, `newdata` is recommended.
+
 # Plot the nonlinear component
+
+The fitted nonlinear component can be visualized with the package plot method:
 
 ```{r plot-method}
 plot(fit_binomial)
 ```
 
-A direct plot can also be created from the prediction methods:
+A direct plot can also be constructed from prediction components:
 
 ```{r custom-plot}
 ordering <- order(u_hat)
@@ -174,6 +242,8 @@ plot(
 
 # Variance estimation
 
+The model-based covariance matrix for all model parameters is obtained with:
+
 ```{r vcov-model}
 V_model <- vcov(
   fit_binomial,
@@ -185,7 +255,7 @@ dim(V_model)
 round(V_model, 4)
 ```
 
-Separate blocks are available:
+Separate covariance blocks are also available:
 
 ```{r vcov-blocks}
 V_alpha <- vcov(
@@ -204,7 +274,7 @@ dim(V_alpha)
 dim(V_beta)
 ```
 
-The sandwich covariance is obtained with:
+A sandwich covariance estimator is obtained with:
 
 ```{r vcov-sandwich}
 V_sandwich <- vcov(
@@ -220,17 +290,28 @@ Leverage-adjusted and finite-sample-corrected covariance estimators are also
 available:
 
 ```{r vcov-adjusted, eval=FALSE}
-vcov(fit_binomial, type = "leverage", component = "parameters")
-vcov(fit_binomial, type = "finite", component = "parameters")
+vcov(
+  fit_binomial,
+  type = "leverage",
+  component = "parameters"
+)
+
+vcov(
+  fit_binomial,
+  type = "finite",
+  component = "parameters"
+)
 ```
 
 # Bootstrap inference
 
-The following code is not evaluated during vignette construction because a
+Bootstrap inference is available through `bootstrap_pgplsim()`.
+
+The following example is not evaluated during vignette construction because a
 substantive bootstrap can be computationally intensive.
 
 ```{r bootstrap-example, eval=FALSE}
-boot_binomial <- bootstrap_LuGPLSIM(
+boot_binomial <- bootstrap_pgplsim(
   object = fit_binomial,
   B = 500,
   method = "stratified",
@@ -250,71 +331,126 @@ V_bootstrap <- vcov(
 
 # Poisson example with exposure
 
-For Poisson models, `offset` is a positive exposure vector on its original
-scale. The function internally uses its logarithm as the GLM offset.
+For Poisson models, the public `offset` argument is an **additive offset on the
+link scale**, following the usual GLM convention.
+
+Therefore, if \(E_i\) is a positive exposure such as population,
+person-time, or follow-up time, supply
+
+\[
+\log(E_i)
+\]
+
+as the offset.
+
+## Simulate Poisson data
 
 ```{r simulate-poisson}
 set.seed(2027)
 
 n_pois <- 250
 
-Z_pois <- cbind(
+dat_poisson <- data.frame(
   z1 = runif(n_pois, 0, 2),
   z2 = runif(n_pois, 0, 2),
-  z3 = runif(n_pois, 0, 2)
-)
-
-X_pois <- cbind(
+  z3 = runif(n_pois, 0, 2),
   x1 = rnorm(n_pois),
-  x2 = rbinom(n_pois, 1, 0.5)
+  x2 = rbinom(n_pois, 1, 0.5),
+  exposure = runif(n_pois, 1, 4)
 )
-
-exposure <- runif(n_pois, 1, 4)
 
 alpha_pois <- c(1, 1, 1) / sqrt(3)
 beta_pois <- c(0.35, -0.25)
 
-u_pois <- as.numeric(Z_pois %*% alpha_pois)
+Z_pois <- as.matrix(
+  dat_poisson[, c("z1", "z2", "z3")]
+)
+
+X_pois <- as.matrix(
+  dat_poisson[, c("x1", "x2")]
+)
+
+u_pois <- as.numeric(
+  Z_pois %*% alpha_pois
+)
+
 phi_pois <- 0.4 * sin(2 * u_pois)
 phi_pois <- phi_pois - mean(phi_pois)
 
-eta_pois <- as.numeric(X_pois %*% beta_pois + phi_pois)
-mu_pois <- exposure * exp(eta_pois)
-y_pois <- rpois(n_pois, lambda = mu_pois)
-```
+eta_pois <- as.numeric(
+  X_pois %*% beta_pois + phi_pois
+)
 
-```{r fit-poisson}
-fit_poisson <- LuGPLSIM(
-  y = y_pois,
-  X = X_pois,
-  Z = Z_pois,
-  family = poisson(),
-  offset = exposure,
-  M = 4,
-  maxit = 50,
-  tol = 1e-6
+mu_pois <- dat_poisson$exposure * exp(eta_pois)
+
+dat_poisson$y <- rpois(
+  n_pois,
+  lambda = mu_pois
 )
 ```
 
-```{r predict-poisson}
+## Fit the Poisson model
+
+```{r fit-poisson}
+fit_poisson <- pgplsim(
+  y ~ x1 + x2,
+  index = ~ z1 + z2 + z3,
+  data = dat_poisson,
+  family = poisson(),
+  offset = log(dat_poisson$exposure),
+  M = 4,
+  control = pgplsim_control(
+    maxit = 50,
+    tol = 1e-6
+  )
+)
+```
+
+## Predict Poisson means
+
+For in-sample prediction, the fitted offset is used automatically when
+`offset` is omitted:
+
+```{r predict-poisson-in-sample}
 mu_hat_pois <- predict(
   fit_poisson,
-  newX = X_pois,
-  newZ = Z_pois,
-  type = "response",
-  offset = exposure
+  type = "response"
 )
 
 range(mu_hat_pois)
 ```
 
+For prediction using `newdata`, supply the corresponding link-scale offset:
+
+```{r predict-poisson-newdata}
+mu_hat_pois_new <- predict(
+  fit_poisson,
+  newdata = dat_poisson,
+  type = "response",
+  offset = log(dat_poisson$exposure)
+)
+
+range(mu_hat_pois_new)
+```
+
+A scalar offset is also allowed and is recycled across observations. For
+example, `offset = 0` corresponds to exposure equal to 1.
+
 # Practical recommendations
 
-1. Standardize continuous columns of \(X\) and \(Z\) when their scales differ substantially.
-2. Keep the same coding, column order, and standardization when predicting new observations.
-3. Use model-based covariance for routine summaries and bootstrap inference when uncertainty in the index direction is especially important.
-4. Avoid extrapolating far beyond the training range of the fitted single index.
-5. Run `devtools::test()` and `devtools::check()` before committing package changes.
+1. Standardize continuous predictors when their scales differ substantially,
+   particularly for variables entering the single-index component.
+2. Use ordinary R formula syntax for the linear component and a one-sided
+   formula for the single-index component.
+3. Keep factor coding and continuous-variable transformations consistent
+   between the training data and `newdata`.
+4. For Poisson models, remember that the public `offset` is supplied on the
+   link scale; use `log(exposure)` for a positive exposure variable.
+5. Use model-based covariance for routine summaries and bootstrap inference
+   when uncertainty in the estimated index direction is especially important.
+6. Avoid extrapolating far beyond the range of the fitted single index.
+7. Run `devtools::test()` and `devtools::check()` before committing package
+   changes.
 
 # Session information
 

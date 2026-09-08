@@ -21,6 +21,7 @@ knitr::opts_chunk$set(
   warning = FALSE,
   message = FALSE
 )
+
 library(pgplsim)
 ```
 
@@ -55,19 +56,23 @@ where
 \phi(u)=\sin(2u)-E\{\sin(2u)\}.
 \]
 
+The data-generating model contains no separate intercept in the linear
+component. Therefore, the formula used below explicitly removes the default
+R intercept with `0 +`.
+
 # Simulation functions
+
+The simulation function returns both a data frame for the public formula
+interface and the true quantities used to evaluate estimation performance.
 
 ```{r simulation-functions}
 simulate_binomial_gplsim <- function(n, seed) {
   set.seed(seed)
 
-  Z <- cbind(
+  dat <- data.frame(
     z1 = runif(n, 0, 2),
     z2 = runif(n, 0, 2),
-    z3 = runif(n, 0, 2)
-  )
-
-  X <- cbind(
+    z3 = runif(n, 0, 2),
     x1 = rnorm(n),
     x2 = rbinom(n, 1, 0.5)
   )
@@ -75,18 +80,35 @@ simulate_binomial_gplsim <- function(n, seed) {
   alpha_true <- c(1, 1, 1) / sqrt(3)
   beta_true <- c(1, -0.5)
 
-  u <- as.numeric(Z %*% alpha_true)
+  Z <- as.matrix(
+    dat[, c("z1", "z2", "z3")]
+  )
+
+  X <- as.matrix(
+    dat[, c("x1", "x2")]
+  )
+
+  u <- as.numeric(
+    Z %*% alpha_true
+  )
+
   phi <- sin(2 * u)
   phi <- phi - mean(phi)
 
-  eta <- as.numeric(X %*% beta_true + phi)
+  eta <- as.numeric(
+    X %*% beta_true + phi
+  )
+
   probability <- plogis(eta)
-  y <- rbinom(n, size = 1, prob = probability)
+
+  dat$y <- rbinom(
+    n,
+    size = 1,
+    prob = probability
+  )
 
   list(
-    y = y,
-    X = X,
-    Z = Z,
+    data = dat,
     u = u,
     phi = phi,
     alpha_true = alpha_true,
@@ -94,15 +116,32 @@ simulate_binomial_gplsim <- function(n, seed) {
   )
 }
 
-wald_coverage <- function(estimate, standard_error, truth, level = 0.95) {
-  critical_value <- qnorm(1 - (1 - level) / 2)
-  lower <- estimate - critical_value * standard_error
-  upper <- estimate + critical_value * standard_error
-  as.numeric(lower <= truth & truth <= upper)
+wald_coverage <- function(
+    estimate,
+    standard_error,
+    truth,
+    level = 0.95
+) {
+  critical_value <- qnorm(
+    1 - (1 - level) / 2
+  )
+
+  lower <- estimate -
+    critical_value * standard_error
+
+  upper <- estimate +
+    critical_value * standard_error
+
+  as.numeric(
+    lower <= truth &
+      truth <= upper
+  )
 }
 ```
 
 # One replication
+
+Generate one sample and fit the model using the public formula interface.
 
 ```{r one-replication}
 dat_one <- simulate_binomial_gplsim(
@@ -110,18 +149,24 @@ dat_one <- simulate_binomial_gplsim(
   seed = 1001
 )
 
-fit_one <- LuGPLSIM(
-  y = dat_one$y,
-  X = dat_one$X,
-  Z = dat_one$Z,
+fit_one <- pgplsim(
+  y ~ 0 + x1 + x2,
+  index = ~ z1 + z2 + z3,
+  data = dat_one$data,
   family = binomial(),
   M = 4,
-  maxit = 50,
-  tol = 1e-6
+  control = pgplsim_control(
+    maxit = 50,
+    tol = 1e-6
+  )
 )
 
 summary(fit_one)
 ```
+
+The formula `y ~ 0 + x1 + x2` matches the data-generating mechanism exactly:
+the linear component contains coefficients for `x1` and `x2`, but no
+intercept.
 
 ```{r one-replication-estimates}
 cbind(
@@ -139,26 +184,36 @@ cbind(
 
 # Monte Carlo loop
 
+The following loop repeats the same fitting procedure on independently
+simulated samples.
+
 ```{r monte-carlo}
 n_rep <- 20
 sample_size <- 300
-simulation_results <- vector("list", n_rep)
+
+simulation_results <- vector(
+  "list",
+  n_rep
+)
 
 for (r in seq_len(n_rep)) {
+
   dat_r <- simulate_binomial_gplsim(
     n = sample_size,
     seed = 10000 + r
   )
 
   fit_r <- tryCatch(
-    LuGPLSIM(
-      y = dat_r$y,
-      X = dat_r$X,
-      Z = dat_r$Z,
+    pgplsim(
+      y ~ 0 + x1 + x2,
+      index = ~ z1 + z2 + z3,
+      data = dat_r$data,
       family = binomial(),
       M = 4,
-      maxit = 50,
-      tol = 1e-6
+      control = pgplsim_control(
+        maxit = 50,
+        tol = 1e-6
+      )
     ),
     error = function(e) e
   )
@@ -168,6 +223,7 @@ for (r in seq_len(n_rep)) {
       success = FALSE,
       message = conditionMessage(fit_r)
     )
+
     next
   }
 
@@ -196,48 +252,88 @@ for (r in seq_len(n_rep)) {
 
 # Combine successful replications
 
+A replication is retained for the performance summary only if the model fit
+completed successfully and reported convergence.
+
 ```{r combine-results}
 successful <- vapply(
   simulation_results,
-  function(x) isTRUE(x$success) && isTRUE(x$converged),
+  function(x) {
+    isTRUE(x$success) &&
+      isTRUE(x$converged)
+  },
   logical(1)
 )
 
 sum(successful)
 mean(successful)
 
-successful_results <- simulation_results[successful]
+successful_results <-
+  simulation_results[successful]
 ```
 
+For this small illustrative simulation, at least one successful replication is
+required before the summaries below can be computed.
+
 ```{r extract-results}
+if (length(successful_results) == 0L) {
+  stop(
+    "No simulation replications converged successfully."
+  )
+}
+
 alpha_estimates <- do.call(
   rbind,
-  lapply(successful_results, `[[`, "alpha_hat")
+  lapply(
+    successful_results,
+    `[[`,
+    "alpha_hat"
+  )
 )
 
 beta_estimates <- do.call(
   rbind,
-  lapply(successful_results, `[[`, "beta_hat")
+  lapply(
+    successful_results,
+    `[[`,
+    "beta_hat"
+  )
 )
 
 alpha_ses <- do.call(
   rbind,
-  lapply(successful_results, `[[`, "se_alpha")
+  lapply(
+    successful_results,
+    `[[`,
+    "se_alpha"
+  )
 )
 
 beta_ses <- do.call(
   rbind,
-  lapply(successful_results, `[[`, "se_beta")
+  lapply(
+    successful_results,
+    `[[`,
+    "se_beta"
+  )
 )
 
 alpha_coverage <- do.call(
   rbind,
-  lapply(successful_results, `[[`, "alpha_coverage")
+  lapply(
+    successful_results,
+    `[[`,
+    "alpha_coverage"
+  )
 )
 
 beta_coverage <- do.call(
   rbind,
-  lapply(successful_results, `[[`, "beta_coverage")
+  lapply(
+    successful_results,
+    `[[`,
+    "beta_coverage"
+  )
 )
 
 lambda_values <- vapply(
@@ -257,6 +353,9 @@ iteration_values <- vapply(
 
 # Performance metrics
 
+The helper below summarizes Monte Carlo performance for a block of model
+parameters.
+
 ```{r performance-function}
 summarize_parameter_block <- function(
     estimates,
@@ -270,11 +369,24 @@ summarize_parameter_block <- function(
     truth = truth,
     mean_estimate = colMeans(estimates),
     bias = colMeans(estimates) - truth,
-    empirical_sd = apply(estimates, 2, sd),
-    mean_model_se = colMeans(standard_errors),
-    rmse = sqrt(colMeans(
-      sweep(estimates, 2, truth, FUN = "-")^2
-    )),
+    empirical_sd = apply(
+      estimates,
+      2,
+      sd
+    ),
+    mean_model_se = colMeans(
+      standard_errors
+    ),
+    rmse = sqrt(
+      colMeans(
+        sweep(
+          estimates,
+          2,
+          truth,
+          FUN = "-"
+        )^2
+      )
+    ),
     coverage = colMeans(coverage),
     row.names = NULL,
     check.names = FALSE
@@ -282,26 +394,38 @@ summarize_parameter_block <- function(
 }
 ```
 
+## Index coefficients
+
 ```{r performance-alpha}
-alpha_summary <- summarize_parameter_block(
-  estimates = alpha_estimates,
-  standard_errors = alpha_ses,
-  coverage = alpha_coverage,
-  truth = dat_one$alpha_true,
-  parameter_names = paste0("alpha", seq_along(dat_one$alpha_true))
-)
+alpha_summary <-
+  summarize_parameter_block(
+    estimates = alpha_estimates,
+    standard_errors = alpha_ses,
+    coverage = alpha_coverage,
+    truth = dat_one$alpha_true,
+    parameter_names = paste0(
+      "alpha",
+      seq_along(dat_one$alpha_true)
+    )
+  )
 
 alpha_summary
 ```
 
+## Linear coefficients
+
 ```{r performance-beta}
-beta_summary <- summarize_parameter_block(
-  estimates = beta_estimates,
-  standard_errors = beta_ses,
-  coverage = beta_coverage,
-  truth = dat_one$beta_true,
-  parameter_names = paste0("beta", seq_along(dat_one$beta_true))
-)
+beta_summary <-
+  summarize_parameter_block(
+    estimates = beta_estimates,
+    standard_errors = beta_ses,
+    coverage = beta_coverage,
+    truth = dat_one$beta_true,
+    parameter_names = c(
+      "beta_x1",
+      "beta_x2"
+    )
+  )
 
 beta_summary
 ```
@@ -312,6 +436,7 @@ beta_summary
 data.frame(
   successful_replications = sum(successful),
   requested_replications = n_rep,
+  convergence_rate = mean(successful),
   mean_iterations = mean(iteration_values),
   median_iterations = median(iteration_values),
   mean_lambda = mean(lambda_values),
@@ -319,25 +444,35 @@ data.frame(
 )
 ```
 
+Because this vignette uses only a small number of replications, these summaries
+are intended to illustrate the workflow rather than provide definitive
+Monte Carlo evidence.
+
 # Estimated nonlinear function
+
+The public prediction interface uses `newdata`. The fitted index and nonlinear
+smooth can therefore be obtained directly from the simulated data frame.
 
 ```{r nonlinear-function}
 u_hat <- predict(
   fit_one,
-  newX = dat_one$X,
-  newZ = dat_one$Z,
+  newdata = dat_one$data,
   type = "index"
 )
 
 smooth_hat <- predict(
   fit_one,
-  newX = dat_one$X,
-  newZ = dat_one$Z,
+  newdata = dat_one$data,
   type = "smooth"
 )
 
-ordering_true <- order(dat_one$u)
-ordering_hat <- order(u_hat)
+ordering_true <- order(
+  dat_one$u
+)
+
+ordering_hat <- order(
+  u_hat
+)
 
 plot(
   dat_one$u[ordering_true],
@@ -358,17 +493,28 @@ lines(
 
 legend(
   "topright",
-  legend = c("True", "Estimated"),
+  legend = c(
+    "True",
+    "Estimated"
+  ),
   lty = c(1, 2),
   lwd = 2,
   bty = "n"
 )
 ```
 
+The fitted index is identifiable only under the package normalization
+constraint on \(\alpha\), while the smooth is estimated on the fitted
+single-index scale.
+
 # Optional bootstrap comparison
 
+Bootstrap inference is available through `bootstrap_pgplsim()`. The example
+below is not evaluated during vignette construction because a substantive
+bootstrap may be computationally intensive.
+
 ```{r bootstrap-comparison, eval=FALSE}
-boot_one <- bootstrap_LuGPLSIM(
+boot_one <- bootstrap_pgplsim(
   object = fit_one,
   B = 500,
   method = "stratified",
@@ -386,11 +532,20 @@ data.frame(
 
 # Extending the study
 
-A full study can vary sample size, outcome family, nonlinear-function shape,
-index-effect strength, correlation among index covariates, covariate dimension,
-number of spline knots, and variance estimator. Save replication-level output
-rather than only final averages so convergence and smoothing behavior can be
-examined later.
+A full simulation study can vary sample size, outcome family,
+nonlinear-function shape, index-effect strength, correlation among index
+covariates, covariate dimension, spline-basis dimension, and variance
+estimator.
+
+For a publication-quality study, increase the number of Monte Carlo
+replications substantially and save replication-level output rather than only
+the final averages. Replication-level results make it possible to examine
+convergence failures, smoothing-parameter behavior, outlying estimates, and
+coverage in greater detail.
+
+The same framework can also be extended to Poisson outcomes. Under the current
+public API, a Poisson exposure should be supplied as an additive link-scale
+offset, for example `offset = log(exposure)`.
 
 # Session information
 
