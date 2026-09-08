@@ -1,17 +1,17 @@
 ############################################################
-# Summary method for LuGPLSIM
+# Summary method for pgplsim
 ############################################################
 
-#' Summarize a LuGPLSIM object
+#' Summarize a pgplsim object
 #'
-#' @param object An object of class `"LuGPLSIM"`.
+#' @param object An object of class `"pgplsim"`.
 #' @param ... Additional arguments, currently ignored.
 #'
-#' @return An object of class `"summary.LuGPLSIM"`.
+#' @return An object of class `"summary.pgplsim"`.
 #'
 #' @importFrom stats pnorm
 #' @export
-summary.LuGPLSIM <- function(object, ...) {
+summary.pgplsim <- function(object, ...) {
 
   beta <- object$beta_hat
   se_beta <- object$se_beta
@@ -57,22 +57,22 @@ summary.LuGPLSIM <- function(object, ...) {
     converged = object$converged
   )
 
-  class(out) <- "summary.LuGPLSIM"
+  class(out) <- "summary.pgplsim"
 
   out
 }
 
 
-#' Print summary of a LuGPLSIM object
+#' Print summary of a pgplsim object
 #'
-#' @param x An object of class `"summary.LuGPLSIM"`.
+#' @param x An object of class `"summary.pgplsim"`.
 #' @param digits Number of digits to print.
 #' @param ... Additional arguments, currently ignored.
 #'
 #' @return Invisibly returns `x`.
 #'
 #' @export
-print.summary.LuGPLSIM <- function(
+print.summary.pgplsim <- function(
     x,
     digits = max(3, getOption("digits") - 3),
     ...

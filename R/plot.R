@@ -1,13 +1,13 @@
 ############################################################
-# Plot method for LuGPLSIM
+# Plot method for pgplsim
 ############################################################
 
-#' Plot a fitted LuGPLSIM model
+#' Plot a fitted pgplsim model
 #'
 #' Produces a plot of the estimated smooth single-index component
 #' against the fitted index values.
 #'
-#' @param x An object of class `"LuGPLSIM"`.
+#' @param x An object of class `"pgplsim"`.
 #' @param type Type of plot. Currently `"smooth"` is supported.
 #' @param rug Logical; if `TRUE`, add a rug plot of the fitted index values.
 #' @param xlab Optional x-axis label.
@@ -18,7 +18,7 @@
 #' @return Invisibly returns the plotted data.
 #'
 #' @export
-plot.LuGPLSIM <- function(
+plot.pgplsim <- function(
     x,
     type = c("smooth"),
     rug = TRUE,
@@ -28,9 +28,9 @@ plot.LuGPLSIM <- function(
     ...
 ) {
 
-  if (!inherits(x, "LuGPLSIM")) {
+  if (!inherits(x, "pgplsim")) {
     stop(
-      "x must inherit from class \"LuGPLSIM\".",
+      "x must inherit from class \"pgplsim\".",
       call. = FALSE
     )
   }

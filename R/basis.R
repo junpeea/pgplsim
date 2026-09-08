@@ -12,7 +12,7 @@
 #' @return A list containing the B-spline basis matrix and penalty matrix.
 #'
 #' @importFrom splines bs
-#' @export
+#' @keywords internal
 compute_basis <- function(
     u,
     M = 80,

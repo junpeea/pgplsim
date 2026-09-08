@@ -1,23 +1,369 @@
-#' Predict from a fitted LuGPLSIM model
+#' Predict from a fitted pgplsim model
 #'
-#' @param object A fitted object of class `"LuGPLSIM"`.
-#' @param newX Optional matrix of new linear covariates. If omitted,
-#'   the original fitting matrix is used.
-#' @param newZ Optional matrix of new single-index covariates. If omitted,
-#'   the original fitting matrix is used.
-#' @param type Type of prediction. One of `"response"`, `"link"`,
-#'   `"index"`, `"smooth"`, or `"linear"`.
-#' @param offset Optional exposure vector for Poisson prediction.
-#'   This is an exposure on the original scale, not a log offset.
-#'   If omitted for in-sample prediction, the fitted exposure is used.
-#'   If omitted for new Poisson data, exposure is set to one.
-#' @param ... Additional arguments, currently unused.
+#' Generate predictions from a fitted generalized partially linear
+#' single-index model.
 #'
-#' @return A numeric vector of predictions.
+#' For models fitted with the formula interface, new observations should
+#' normally be supplied through `newdata`. The linear and single-index design
+#' matrices are then reconstructed automatically from the formulas stored in
+#' the fitted model.
 #'
-#' @importFrom splines splineDesign
+#' The `newX` and `newZ` arguments are retained for backward compatibility and
+#' low-level use. They should not be supplied together with `newdata`.
+#'
+#' @param object A fitted object of class `"pgplsim"`.
+#' @param newdata Optional data frame containing variables used in the original
+#'   model. If `NULL`, prediction uses `newX`/`newZ` when supplied; otherwise it
+#'   uses the original design matrices stored in `object`.
+#' @param newX Optional matrix of linear-component covariates. Retained for
+#'   backward compatibility and low-level use. Do not supply together with
+#'   `newdata`.
+#' @param newZ Optional matrix of single-index covariates. Retained for backward
+#'   compatibility and low-level use. Do not supply together with `newdata`.
+#' @param type Character string specifying the prediction scale. One of
+#'   `"response"`, `"link"`, `"index"`, `"smooth"`, or `"linear"`.
+#' @param offset Optional numeric offset on the linear-predictor scale for
+#'   Poisson prediction. A scalar is recycled to all prediction observations.
+#'   For an exposure such as population or person-time, supply its logarithm,
+#'   for example `offset = log(exposure)`. Offsets are not supported for
+#'   binomial models.
+#' @param ... Additional arguments passed to the internal matrix prediction
+#'   engine.
+#'
+#' @return A numeric vector of predictions. For `newdata` predictions, rows
+#'   containing missing required covariates (or a missing Poisson offset) are
+#'   returned as `NA` while preserving the row order of `newdata`.
+#'
 #' @export
-predict.LuGPLSIM <- function(
+predict.pgplsim <- function(
+    object,
+    newdata = NULL,
+    newX = NULL,
+    newZ = NULL,
+    type = c("response", "link", "index", "smooth", "linear"),
+    offset = NULL,
+    ...
+) {
+
+  type <- match.arg(type)
+
+  ############################################################
+  # 1. Validate fitted object and interface choice
+  ############################################################
+
+  if (!inherits(object, "pgplsim")) {
+    stop(
+      "`object` must inherit from class \"pgplsim\".",
+      call. = FALSE
+    )
+  }
+
+  if (is.null(object$family) || is.null(object$family$family)) {
+    stop(
+      "The fitted object does not contain a valid family specification.",
+      call. = FALSE
+    )
+  }
+
+  fam <- tolower(as.character(object$family$family)[1L])
+
+  if (!fam %in% c("binomial", "poisson")) {
+    stop(
+      "Prediction is currently supported only for binomial and Poisson models.",
+      call. = FALSE
+    )
+  }
+
+  if (!is.null(newdata) && (!is.null(newX) || !is.null(newZ))) {
+    stop(
+      "Supply either `newdata` or `newX`/`newZ`, not both.",
+      call. = FALSE
+    )
+  }
+
+  ############################################################
+  # 2. Matrix-based / in-sample prediction
+  ############################################################
+
+  if (is.null(newdata)) {
+
+    if (fam == "binomial" && !is.null(offset)) {
+      stop(
+        "`offset` is not supported for binomial models.",
+        call. = FALSE
+      )
+    }
+
+    return(
+      .predict_pgplsim_matrix(
+        object = object,
+        newX = newX,
+        newZ = newZ,
+        type = type,
+        offset = offset,
+        ...
+      )
+    )
+  }
+
+  ############################################################
+  # 3. Validate newdata
+  ############################################################
+
+  if (!is.data.frame(newdata)) {
+    stop(
+      "`newdata` must be a data frame.",
+      call. = FALSE
+    )
+  }
+
+  if (nrow(newdata) < 1L) {
+    stop(
+      "`newdata` must contain at least one observation.",
+      call. = FALSE
+    )
+  }
+
+  if (is.null(object$terms) || is.null(object$index_terms)) {
+    stop(
+      paste0(
+        "`newdata` prediction requires a model fitted with the formula ",
+        "interface. For older matrix-based fits, supply `newX` and `newZ` ",
+        "instead."
+      ),
+      call. = FALSE
+    )
+  }
+
+  ############################################################
+  # 4. Reconstruct linear-component model frame
+  ############################################################
+
+  linear_terms <- stats::delete.response(object$terms)
+
+  mf_linear <- tryCatch(
+    stats::model.frame(
+      formula = linear_terms,
+      data = newdata,
+      na.action = stats::na.pass,
+      xlev = object$xlevels,
+      drop.unused.levels = FALSE
+    ),
+    error = function(e) {
+      stop(
+        paste0(
+          "Could not construct the linear prediction data: ",
+          conditionMessage(e)
+        ),
+        call. = FALSE
+      )
+    }
+  )
+
+  ############################################################
+  # 5. Reconstruct single-index model frame
+  ############################################################
+
+  mf_index <- tryCatch(
+    stats::model.frame(
+      formula = object$index_terms,
+      data = newdata,
+      na.action = stats::na.pass,
+      xlev = object$index_xlevels,
+      drop.unused.levels = FALSE
+    ),
+    error = function(e) {
+      stop(
+        paste0(
+          "Could not construct the index prediction data: ",
+          conditionMessage(e)
+        ),
+        call. = FALSE
+      )
+    }
+  )
+
+  ############################################################
+  # 6. Common complete-case prediction sample
+  ############################################################
+
+  complete <- stats::complete.cases(mf_linear) &
+    stats::complete.cases(mf_index)
+
+  ############################################################
+  # 7. Validate prediction offset
+  ############################################################
+
+  if (fam == "binomial") {
+
+    if (!is.null(offset)) {
+      stop(
+        "`offset` is not supported for binomial models.",
+        call. = FALSE
+      )
+    }
+
+  } else if (!is.null(offset)) {
+
+    if (!is.numeric(offset)) {
+      stop(
+        "`offset` must be numeric.",
+        call. = FALSE
+      )
+    }
+
+    if (!length(offset) %in% c(1L, nrow(newdata))) {
+      stop(
+        paste0(
+          "For Poisson prediction, `offset` must have length 1 or ",
+          "the same number of observations as `newdata`."
+        ),
+        call. = FALSE
+      )
+    }
+
+    if (length(offset) == 1L) {
+      offset <- rep(offset, nrow(newdata))
+    }
+
+    if (any(is.infinite(offset))) {
+      stop(
+        "`offset` must not contain infinite values.",
+        call. = FALSE
+      )
+    }
+
+    complete <- complete & !is.na(offset)
+  }
+
+  ############################################################
+  # 8. Return NA if all newdata rows are incomplete
+  ############################################################
+
+  if (!any(complete)) {
+    out <- rep(NA_real_, nrow(newdata))
+    return(out)
+  }
+
+  mf_linear_complete <- mf_linear[complete, , drop = FALSE]
+  mf_index_complete <- mf_index[complete, , drop = FALSE]
+
+  ############################################################
+  # 9. Construct linear prediction matrix X
+  ############################################################
+
+  newX <- tryCatch(
+    stats::model.matrix(
+      object = linear_terms,
+      data = mf_linear_complete,
+      contrasts.arg = object$contrasts
+    ),
+    error = function(e) {
+      stop(
+        paste0(
+          "Could not construct the linear prediction matrix: ",
+          conditionMessage(e)
+        ),
+        call. = FALSE
+      )
+    }
+  )
+
+  ############################################################
+  # 10. Construct single-index prediction matrix Z
+  ############################################################
+
+  newZ <- tryCatch(
+    stats::model.matrix(
+      object = object$index_terms,
+      data = mf_index_complete,
+      contrasts.arg = object$index_contrasts
+    ),
+    error = function(e) {
+      stop(
+        paste0(
+          "Could not construct the index prediction matrix: ",
+          conditionMessage(e)
+        ),
+        call. = FALSE
+      )
+    }
+  )
+
+  ############################################################
+  # 11. Defensive design-column checks
+  ############################################################
+
+  expected_X <- colnames(object$X)
+  expected_Z <- colnames(object$Z)
+
+  if (!is.null(expected_X)) {
+
+    missing_X <- setdiff(expected_X, colnames(newX))
+    extra_X <- setdiff(colnames(newX), expected_X)
+
+    if (length(missing_X) > 0L || length(extra_X) > 0L) {
+      stop(
+        "The linear-component design matrix generated from `newdata` does not match the fitted model.",
+        call. = FALSE
+      )
+    }
+
+    newX <- newX[, expected_X, drop = FALSE]
+  }
+
+  if (!is.null(expected_Z)) {
+
+    missing_Z <- setdiff(expected_Z, colnames(newZ))
+    extra_Z <- setdiff(colnames(newZ), expected_Z)
+
+    if (length(missing_Z) > 0L || length(extra_Z) > 0L) {
+      stop(
+        "The index-component design matrix generated from `newdata` does not match the fitted model.",
+        call. = FALSE
+      )
+    }
+
+    newZ <- newZ[, expected_Z, drop = FALSE]
+  }
+
+  ############################################################
+  # 12. Subset offset to complete observations
+  ############################################################
+
+  offset_complete <- if (is.null(offset)) {
+    NULL
+  } else {
+    as.numeric(offset[complete])
+  }
+
+  ############################################################
+  # 13. Call existing matrix prediction engine
+  ############################################################
+
+  pred_complete <- .predict_pgplsim_matrix(
+    object = object,
+    newX = newX,
+    newZ = newZ,
+    type = type,
+    offset = offset_complete,
+    ...
+  )
+
+  ############################################################
+  # 14. Restore original newdata row structure
+  ############################################################
+
+  out <- rep(NA_real_, nrow(newdata))
+  out[complete] <- as.numeric(pred_complete)
+  out
+}
+
+#' Internal matrix-based prediction engine
+#'
+#' @keywords internal
+#' @noRd
+.predict_pgplsim_matrix <- function(
     object,
     newX = NULL,
     newZ = NULL,
@@ -31,16 +377,15 @@ predict.LuGPLSIM <- function(
     offset = NULL,
     ...
 ) {
-
   type <- match.arg(type)
 
   ############################################################
   # 1. Validate fitted object
   ############################################################
 
-  if (!inherits(object, "LuGPLSIM")) {
+  if (!inherits(object, "pgplsim")) {
     stop(
-      "object must inherit from class \"LuGPLSIM\".",
+      "object must inherit from class \"pgplsim\".",
       call. = FALSE
     )
   }
@@ -81,10 +426,11 @@ predict.LuGPLSIM <- function(
   ############################################################
 
   if (is.null(newX)) {
+
     if (is.null(object$X)) {
       stop(
         paste0(
-          "newX was not supplied and the fitted object ",
+          "`newX` was not supplied and the fitted object ",
           "does not contain the original X matrix."
         ),
         call. = FALSE
@@ -95,10 +441,11 @@ predict.LuGPLSIM <- function(
   }
 
   if (is.null(newZ)) {
+
     if (is.null(object$Z)) {
       stop(
         paste0(
-          "newZ was not supplied and the fitted object ",
+          "`newZ` was not supplied and the fitted object ",
           "does not contain the original Z matrix."
         ),
         call. = FALSE
@@ -113,7 +460,7 @@ predict.LuGPLSIM <- function(
 
   if (nrow(newX) != nrow(newZ)) {
     stop(
-      "newX and newZ must have the same number of rows.",
+      "`newX` and `newZ` must have the same number of rows.",
       call. = FALSE
     )
   }
@@ -121,7 +468,7 @@ predict.LuGPLSIM <- function(
   if (ncol(newX) != length(object$beta_hat)) {
     stop(
       paste0(
-        "newX has ",
+        "The linear prediction matrix has ",
         ncol(newX),
         " columns, but the fitted model requires ",
         length(object$beta_hat),
@@ -134,7 +481,7 @@ predict.LuGPLSIM <- function(
   if (ncol(newZ) != length(object$alpha_hat)) {
     stop(
       paste0(
-        "newZ has ",
+        "The index prediction matrix has ",
         ncol(newZ),
         " columns, but the fitted model requires ",
         length(object$alpha_hat),
@@ -152,13 +499,12 @@ predict.LuGPLSIM <- function(
   ) {
     stop(
       paste0(
-        "newX and newZ must contain only finite, ",
+        "Prediction covariates must contain only finite, ",
         "non-missing values."
       ),
       call. = FALSE
     )
   }
-
   ############################################################
   # 3. Determine whether prediction data equal training data
   ############################################################
@@ -441,12 +787,8 @@ predict.LuGPLSIM <- function(
   eta <- linear_component +
     smooth_component
 
-  if (identical(type, "link")) {
-    return(eta)
-  }
-
   ############################################################
-  # 7. Response-scale prediction
+  # 7. Link- and response-scale prediction
   ############################################################
 
   family_name <- tolower(
@@ -455,11 +797,31 @@ predict.LuGPLSIM <- function(
     )[1L]
   )
 
+  ############################################################
+  # Binomial
+  ############################################################
+
   if (identical(family_name, "binomial")) {
+
+    if (!is.null(offset)) {
+      stop(
+        "`offset` is currently supported only for Poisson prediction.",
+        call. = FALSE
+      )
+    }
+
+    if (identical(type, "link")) {
+      return(eta)
+    }
+
     return(
       stats::plogis(eta)
     )
   }
+
+  ############################################################
+  # Poisson
+  ############################################################
 
   if (identical(family_name, "poisson")) {
 
@@ -467,34 +829,115 @@ predict.LuGPLSIM <- function(
 
     if (is.null(offset)) {
 
-      if (
-        in_sample &&
-        !is.null(object$offset) &&
-        length(object$offset) == n_new
-      ) {
-        exposure <- as.numeric(
-          object$offset
-        )
+      if (in_sample) {
+
+        if (
+          "exposure" %in% names(object) &&
+          !is.null(object$exposure)
+        ) {
+
+          ######################################################
+          # Current public formula fit
+          #
+          # object$offset:
+          #   additive link-scale offset
+          #
+          # object$exposure:
+          #   corresponding positive exposure
+          ######################################################
+
+          if (
+            "offset" %in% names(object) &&
+            !is.null(object$offset)
+          ) {
+
+            prediction_offset <- as.numeric(
+              object$offset
+            )
+
+          } else {
+
+            prediction_offset <- rep(
+              0,
+              n_new
+            )
+          }
+
+        } else if (
+          "offset" %in% names(object) &&
+          !is.null(object$offset)
+        ) {
+
+          ######################################################
+          # Backward-compatible low-level matrix fit
+          #
+          # pgplsim_fit() stores positive exposure in
+          # object$offset.
+          ######################################################
+
+          legacy_exposure <- as.numeric(
+            object$offset
+          )
+
+          if (
+            length(legacy_exposure) != n_new ||
+            anyNA(legacy_exposure) ||
+            any(!is.finite(legacy_exposure)) ||
+            any(legacy_exposure <= 0)
+          ) {
+            stop(
+              "The stored Poisson exposure is invalid.",
+              call. = FALSE
+            )
+          }
+
+          prediction_offset <- log(
+            legacy_exposure
+          )
+
+        } else {
+
+          ######################################################
+          # No fitted offset:
+          # exposure = 1, so log-exposure = 0
+          ######################################################
+
+          prediction_offset <- rep(
+            0,
+            n_new
+          )
+        }
+
       } else {
-        exposure <- rep(1, n_new)
-      }
 
-    } else {
+        ########################################################
+        # New observations without supplied offset:
+        # exposure = 1, so log-exposure = 0
+        ########################################################
 
-      exposure <- as.numeric(offset)
-
-      if (length(exposure) == 1L) {
-        exposure <- rep(
-          exposure,
+        prediction_offset <- rep(
+          0,
           n_new
         )
       }
 
-      if (length(exposure) != n_new) {
+    } else {
+
+      prediction_offset <- as.numeric(offset)
+
+      if (length(prediction_offset) == 1L) {
+        prediction_offset <- rep(
+          prediction_offset,
+          n_new
+        )
+      }
+
+      if (length(prediction_offset) != n_new) {
         stop(
           paste0(
-            "For Poisson prediction, offset/exposure must ",
-            "have length 1 or the same number of rows as newX."
+            "For Poisson prediction, `offset` must have ",
+            "length 1 or the same number of observations ",
+            "as the prediction data."
           ),
           call. = FALSE
         )
@@ -502,45 +945,37 @@ predict.LuGPLSIM <- function(
     }
 
     if (
-      anyNA(exposure) ||
-      any(!is.finite(exposure)) ||
-      any(exposure <= 0)
+      anyNA(prediction_offset) ||
+      any(!is.finite(prediction_offset))
     ) {
       stop(
         paste0(
-          "For Poisson prediction, offset/exposure values ",
-          "must be finite and strictly positive."
+          "For Poisson prediction, `offset` must contain ",
+          "only finite, non-missing values."
         ),
         call. = FALSE
       )
     }
 
+    eta_full <- eta + prediction_offset
+
+    if (identical(type, "link")) {
+      return(eta_full)
+    }
+
     eta_bounded <- pmin(
-      pmax(eta, -30),
+      pmax(eta_full, -30),
       30
     )
 
     return(
-      exposure * exp(eta_bounded)
-    )
-  }
-
-  if (identical(family_name, "gaussian")) {
-    return(eta)
-  }
-
-  if (
-    !is.null(object$family$linkinv) &&
-    is.function(object$family$linkinv)
-  ) {
-    return(
-      object$family$linkinv(eta)
+      exp(eta_bounded)
     )
   }
 
   stop(
     paste0(
-      "Response-scale prediction is not implemented for family: ",
+      "Prediction is not implemented for family: ",
       family_name,
       "."
     ),

@@ -1,5 +1,5 @@
-Package: PSPLINE
-Title: Generalized Partially Linear Single-Index Models Using Penalized Splines
+Package: pgplsim
+Title: Penalized Generalized Partially Linear Single-Index Models
 Version: 0.1.0
 Authors@R:
     person(
@@ -8,9 +8,15 @@ Authors@R:
         email = "junpeea@gmail.com",
         role = c("aut", "cre")
     )
-Description: Fits generalized partially linear single-index models using
-    penalized splines, automatic smoothing-parameter estimation, model-based
-    and robust covariance estimation, prediction, and bootstrap inference.
+Description: Implements penalized generalized partially linear single-index
+    models for regression with potentially correlated predictors. The framework
+    combines a flexible nonparametric single-index component with a separate
+    linear component for covariate adjustment and applies penalization to the
+    index coefficients for estimation and variable selection. This formulation
+    enables nonlinear joint predictor effects to be represented through a
+    low-dimensional index while retaining interpretable linear effects for
+    additional covariates. The package supports generalized response
+    distributions and provides functions for model fitting and prediction.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
@@ -27,3 +33,5 @@ Suggests:
     testthat (>= 3.0.0)
 VignetteBuilder: knitr
 Config/testthat/edition: 3
+URL: https://github.com/junpeea/pgplsim
+BugReports: https://github.com/junpeea/pgplsim/issues

@@ -1,5 +1,5 @@
 ---
-title: "Introduction to PSPLINE"
+title: "Introduction to pgplsim"
 author: "Yoon-Bae Jun"
 date: "`r Sys.Date()`"
 output:
@@ -7,7 +7,7 @@ output:
     toc: true
     number_sections: true
 vignette: >
-  %\VignetteIndexEntry{Introduction to PSPLINE}
+  %\VignetteIndexEntry{Introduction to pgplsim}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -25,7 +25,7 @@ knitr::opts_chunk$set(
 
 # Overview
 
-`PSPLINE` fits generalized partially linear single-index models of the form
+`pgplsim` fits generalized partially linear single-index models of the form
 
 \[
 g\{E(Y_i\mid X_i,Z_i)\}
@@ -42,11 +42,11 @@ Poisson outcomes.
 # Installation
 
 ```{r installation, eval=FALSE}
-remotes::install_github("junpeea/PSPLINE")
+remotes::install_github("junpeea/pgplsim")
 ```
 
 ```{r load-package}
-library(PSPLINE)
+library(pgplsim)
 ```
 
 # A binomial example

@@ -19,3 +19,4 @@ A list containing the B-spline basis matrix and penalty matrix.
 \description{
 Construct B-spline basis and penalty matrix
 }
+\keyword{internal}

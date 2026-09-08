@@ -1,12 +1,12 @@
 ############################################################
-# Variance-covariance methods for LuGPLSIM
+# Variance-covariance methods for pgplsim
 ############################################################
 
-#' Variance-Covariance Matrix for a LuGPLSIM Model
+#' Variance-Covariance Matrix for a pgplsim Model
 #'
 #' Extracts model-based, sandwich, leverage-adjusted,
 #' finite-sample-corrected, or bootstrap variance estimates
-#' for a fitted LuGPLSIM model.
+#' for a fitted pgplsim model.
 #'
 #' The internal unconstrained parameter ordering is
 #'
@@ -30,13 +30,13 @@
 #'   (\alpha^\top,\beta^\top)^\top.
 #' }
 #'
-#' @param object A fitted object of class `"LuGPLSIM"`.
+#' @param object A fitted object of class `"pgplsim"`.
 #' @param type Variance estimator. One of `"model"`, `"sandwich"`,
 #'   `"leverage"`, `"finite"`, or `"bootstrap"`.
 #' @param component Parameter block to return. One of `"parameters"`,
 #'   `"alpha"`, `"beta"`, `"theta"`, `"gamma"`, or `"full"`.
 #' @param bootstrap Optional object returned by
-#'   [bootstrap_LuGPLSIM()]. Required when `type = "bootstrap"` unless
+#'   [bootstrap_pgplsim()]. Required when `type = "bootstrap"` unless
 #'   a bootstrap result is stored in `object$bootstrap`.
 #' @param finite_df Optional effective parameter count used for the
 #'   finite-sample correction. The default is the dimension of the
@@ -46,7 +46,7 @@
 #' @return A variance-covariance matrix.
 #'
 #' @export
-vcov.LuGPLSIM <- function(
+vcov.pgplsim <- function(
     object,
     type = c(
       "model",
@@ -68,14 +68,14 @@ vcov.LuGPLSIM <- function(
     ...
 ) {
 
-  if (!inherits(object, "LuGPLSIM")) {
-    stop("object must inherit from class 'LuGPLSIM'.", call. = FALSE)
+  if (!inherits(object, "pgplsim")) {
+    stop("object must inherit from class 'pgplsim'.", call. = FALSE)
   }
 
   type <- match.arg(type)
   component <- match.arg(component)
 
-  dims <- lugplsim_parameter_dimensions(object)
+  dims <- pgplsim_parameter_dimensions(object)
 
   if (type == "bootstrap") {
 
@@ -87,7 +87,7 @@ vcov.LuGPLSIM <- function(
       stop(
         paste0(
           "A bootstrap result is required. Run\n",
-          "  boot <- bootstrap_LuGPLSIM(object, B = 500)\n",
+          "  boot <- bootstrap_pgplsim(object, B = 500)\n",
           "and then use\n",
           "  vcov(object, type = 'bootstrap', bootstrap = boot)."
         ),
@@ -106,23 +106,23 @@ vcov.LuGPLSIM <- function(
 
   V_full <- switch(
     type,
-    model = lugplsim_model_vcov(object),
-    sandwich = lugplsim_sandwich_vcov(
+    model = pgplsim_model_vcov(object),
+    sandwich = pgplsim_sandwich_vcov(
       object,
       adjustment = "none"
     ),
-    leverage = lugplsim_sandwich_vcov(
+    leverage = pgplsim_sandwich_vcov(
       object,
       adjustment = "leverage"
     ),
-    finite = lugplsim_sandwich_vcov(
+    finite = pgplsim_sandwich_vcov(
       object,
       adjustment = "finite",
       finite_df = finite_df
     )
   )
 
-  extract_lugplsim_vcov_component(
+  extract_pgplsim_vcov_component(
     V_full = V_full,
     object = object,
     component = component,
@@ -135,7 +135,7 @@ vcov.LuGPLSIM <- function(
 # Model-based covariance
 ############################################################
 
-lugplsim_model_vcov <- function(object) {
+pgplsim_model_vcov <- function(object) {
 
   if (!is.null(object$vcov_full)) {
     V <- as.matrix(object$vcov_full)
@@ -165,7 +165,7 @@ lugplsim_model_vcov <- function(object) {
 # Sandwich covariance
 ############################################################
 
-lugplsim_sandwich_vcov <- function(
+pgplsim_sandwich_vcov <- function(
     object,
     adjustment = c("none", "leverage", "finite"),
     finite_df = NULL
@@ -173,7 +173,7 @@ lugplsim_sandwich_vcov <- function(
 
   adjustment <- match.arg(adjustment)
 
-  bread <- lugplsim_model_vcov(object)
+  bread <- pgplsim_model_vcov(object)
   d <- nrow(bread)
 
   score <- object$score_contributions
@@ -218,7 +218,7 @@ lugplsim_sandwich_vcov <- function(
 
   if (adjustment == "leverage") {
 
-    h <- lugplsim_hatvalues(object, n = n, d = d)
+    h <- pgplsim_hatvalues(object, n = n, d = d)
 
     # HC2-style adjustment.
     denominator <- sqrt(pmax(1 - h, 1e-8))
@@ -264,7 +264,7 @@ lugplsim_sandwich_vcov <- function(
 # Hat values for leverage-adjusted covariance
 ############################################################
 
-lugplsim_hatvalues <- function(object, n, d) {
+pgplsim_hatvalues <- function(object, n, d) {
 
   if (!is.null(object$hatvalues)) {
 
@@ -315,7 +315,7 @@ lugplsim_hatvalues <- function(object, n, d) {
     )
   }
 
-  bread <- lugplsim_model_vcov(object)
+  bread <- pgplsim_model_vcov(object)
 
   EW <- E_d_by_n * rep(sqrt(pmax(w, 0)), each = d)
 
@@ -330,11 +330,11 @@ lugplsim_hatvalues <- function(object, n, d) {
 # Extract covariance blocks
 ############################################################
 
-extract_lugplsim_vcov_component <- function(
+extract_pgplsim_vcov_component <- function(
     V_full,
     object,
     component,
-    dims = lugplsim_parameter_dimensions(object)
+    dims = pgplsim_parameter_dimensions(object)
 ) {
 
   V_full <- as.matrix(V_full)
@@ -490,7 +490,7 @@ extract_lugplsim_vcov_component <- function(
 # Parameter dimensions and names
 ############################################################
 
-lugplsim_parameter_dimensions <- function(object) {
+pgplsim_parameter_dimensions <- function(object) {
 
   p_alpha <- length(object$alpha_hat)
   p_theta <- p_alpha - 1L
@@ -553,9 +553,9 @@ extract_bootstrap_vcov <- function(
     object
 ) {
 
-  if (!inherits(bootstrap, "bootstrap.LuGPLSIM")) {
+  if (!inherits(bootstrap, "bootstrap.pgplsim")) {
     stop(
-      "bootstrap must inherit from class 'bootstrap.LuGPLSIM'.",
+      "bootstrap must inherit from class 'bootstrap.pgplsim'.",
       call. = FALSE
     )
   }

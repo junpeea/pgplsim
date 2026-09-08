@@ -1,5 +1,5 @@
 ---
-title: "NHANES Diabetes Analysis with PSPLINE"
+title: "NHANES Diabetes Analysis with pgplsim"
 author: "Yoon-Bae Jun"
 date: "`r Sys.Date()`"
 output:
@@ -7,7 +7,7 @@ output:
     toc: true
     number_sections: true
 vignette: >
-  %\VignetteIndexEntry{NHANES Diabetes Analysis with PSPLINE}
+  %\VignetteIndexEntry{NHANES Diabetes Analysis with pgplsim}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -37,13 +37,13 @@ with the optional `NHANES` R package. Diabetes status is modeled using:
 
 This is a reproducible package illustration rather than a definitive
 epidemiologic analysis. Population-level NHANES inference should incorporate
-survey weights, strata, and primary sampling units. The current `PSPLINE`
+survey weights, strata, and primary sampling units. The current `pgplsim`
 implementation does not yet fit complex-survey-weighted models.
 
 # Load the package
 
 ```{r load-package}
-library(PSPLINE)
+library(pgplsim)
 ```
 
 ```{r package-availability}
@@ -124,7 +124,7 @@ X_raw <- model.matrix(
   data = nhanes_analysis
 )
 
-# Remove the model-matrix intercept because the current PSPLINE
+# Remove the model-matrix intercept because the current pgplsim
 # formulation uses the supplied columns directly.
 X_raw <- X_raw[, -1, drop = FALSE]
 
@@ -152,9 +152,9 @@ Z_center <- attr(Z, "scaled:center")
 Z_scale <- attr(Z, "scaled:scale")
 ```
 
-# Fit PSPLINE
+# Fit pgplsim
 
-```{r fit-pspline, eval=has_nhanes}
+```{r fit-pgplsim, eval=has_nhanes}
 fit_nhanes <- LuGPLSIM(
   y = y,
   X = X,
@@ -274,7 +274,7 @@ summary(fit_glm)
 ```{r compare-loglik, eval=has_nhanes}
 data.frame(
   model = c(
-    "PSPLINE",
+    "pgplsim",
     "Logistic regression"
   ),
   log_likelihood = c(
@@ -316,7 +316,7 @@ summary(fit_gam)
 ```
 
 The models have different interpretations: the GAM estimates three separate
-smooth effects, whereas PSPLINE estimates one nonlinear function of a weighted
+smooth effects, whereas pgplsim estimates one nonlinear function of a weighted
 metabolic index.
 
 # Uncertainty estimation

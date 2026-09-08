@@ -1,37 +1,35 @@
 ############################################################
-# Main LuGPLSIM estimator
+# Internal matrix-based pgplsim fitting engine
 ############################################################
 
-#' Fit a Generalized Partially Linear Single-Index Model
+#' Internal matrix-based fitting engine
 #'
-#' Fits a generalized partially linear single-index model of the form
+#' Fits a generalized partially linear single-index model using
+#' preconstructed response and design matrices.
 #'
-#' \deqn{
-#' g\{E(Y \mid X,Z)\}
-#' =
-#' X^\top \beta + \phi(Z^\top \alpha).
-#' }
+#' This function is called internally by [pgplsim()] and is not part
+#' of the public package API.
 #'
 #' @param y Numeric response vector.
 #' @param X Numeric matrix of linear covariates.
 #' @param Z Numeric matrix of single-index covariates.
-#' @param family A GLM family object. Currently supports `binomial()` and
-#'   `poisson()`.
-#' @param offset Optional offset/exposure vector. For Poisson models, this is
-#'   interpreted as an exposure C, so the offset is log(C).
-#' @param M Number of inner knots for the spline basis. If `NULL`, uses
-#'   `ceiling(n^(1/3))`.
-#' @param lambda Initial smoothing parameter. Default is 1.
-#' @param maxit Maximum number of Fisher-scoring iterations. Default is 100.
-#' @param tol Convergence tolerance. Default is 1e-6.
-#' @param trace Logical; if TRUE, prints iteration progress.
+#' @param family A GLM family object.
+#' @param offset Optional positive numeric exposure vector for Poisson
+#'   models. This is an internal argument: the engine interprets it as
+#'   an exposure C and uses `log(C)` as the additive offset. The public
+#'   [pgplsim()] interface instead accepts `offset` on the usual
+#'   linear-predictor scale.
+#' @param M Number of inner knots for the spline basis.
+#' @param lambda Initial smoothing parameter.
+#' @param maxit Maximum number of Fisher-scoring iterations.
+#' @param tol Convergence tolerance.
+#' @param trace Logical; if `TRUE`, print iteration progress.
 #'
-#' @return An object of class `"LuGPLSIM"`.
+#' @return An object of class `"pgplsim"`.
 #'
-#' @importFrom stats binomial poisson gaussian glm glm.fit plogis quantile
-#' @importFrom splines splineDesign
-#' @export
-LuGPLSIM <- function(
+#' @keywords internal
+#' @noRd
+pgplsim_fit <- function(
     y,
     X,
     Z,
@@ -42,7 +40,7 @@ LuGPLSIM <- function(
     maxit = 100,
     tol = 1e-6,
     trace = FALSE
-) {
+){
 
   # ------------------------------------------------------------
   # Validate response and design matrices
@@ -56,54 +54,48 @@ LuGPLSIM <- function(
 
   if (nrow(X) != n || nrow(Z) != n) {
     stop(
-      "Dimensions of y, X, and Z are incompatible.",
+      "Dimensions of `y`, `X`, and `Z` are incompatible.",
       call. = FALSE
     )
   }
 
   if (anyNA(y) || any(!is.finite(y))) {
     stop(
-      "Response y must contain only finite, non-missing values.",
+      "`y` must contain only finite, non-missing values.",
       call. = FALSE
     )
-  }
-
-  family_name <- family$family
-
-  if (identical(family_name, "binomial")) {
-    if (any(!y %in% c(0, 1))) {
-      stop(
-        "For the binomial family, y must contain only 0 and 1.",
-        call. = FALSE
-      )
-    }
-  }
-
-  if (identical(family_name, "poisson")) {
-    if (any(y < 0) || any(y != floor(y))) {
-      stop(
-        paste0(
-          "For the Poisson family, y must contain ",
-          "non-negative integer counts."
-        ),
-        call. = FALSE
-      )
-    }
-  }
-
-  nBeta <- ncol(X)
-  nAlpha <- ncol(Z)
-
-  if (nrow(X) != n || nrow(Z) != n) {
-    stop("Dimensions of y, X, and Z are incompatible.")
   }
 
   family <- initialize_family(family)
   fam <- family$family
 
   if (!fam %in% c("binomial", "poisson")) {
-    stop("The updated Fisher-scoring implementation currently supports binomial() and poisson().")
+    stop(
+      "Only `binomial()` and `poisson()` are currently supported.",
+      call. = FALSE
+    )
   }
+
+  if (fam == "binomial" && any(!y %in% c(0, 1))) {
+    stop(
+      "For the binomial family, `y` must contain only 0 and 1.",
+      call. = FALSE
+    )
+  }
+
+  if (fam == "poisson" &&
+      (any(y < 0) || any(y != floor(y)))) {
+    stop(
+      paste0(
+        "For the Poisson family, `y` must contain ",
+        "non-negative integer counts."
+      ),
+      call. = FALSE
+    )
+  }
+
+  nBeta <- ncol(X)
+  nAlpha <- ncol(Z)
 
   if (fam == "poisson") {
     if (is.null(offset)) {
@@ -314,7 +306,7 @@ LuGPLSIM <- function(
     )
   }
 
-  final_basis <- build_lugplsim_basis(
+  final_basis <- build_pgplsim_basis(
     u = as.numeric(Z %*% alpha),
     qn = qn,
     family_name = fam
@@ -477,16 +469,15 @@ LuGPLSIM <- function(
       converged = converged,
       convergence_difference = theta_diff,
       qn = qn,
-      call = match.call(),
       bootstrap = NULL
     ),
-    class = "LuGPLSIM"
+    class = "pgplsim"
   )
 }
 
 
 ############################################################
-# Internal helpers for LuGPLSIM()
+# Internal helpers for pgplsim()
 ############################################################
 
 initialize_beta_gamma <- function(y, X, Z, C, alpha, family, qn) {
@@ -518,7 +509,7 @@ initialize_beta_gamma <- function(y, X, Z, C, alpha, family, qn) {
 
   u1 <- dataset[, ncol(dataset)]
 
-  basis <- build_lugplsim_basis(
+  basis <- build_pgplsim_basis(
     u = u1,
     qn = qn,
     family_name = fam
@@ -550,8 +541,67 @@ initialize_beta_gamma <- function(y, X, Z, C, alpha, family, qn) {
   )
 }
 
+#' Control Parameters for pgplsim Fitting
+#'
+#' Specifies computational control parameters used by [pgplsim()].
+#'
+#' @param maxit Maximum number of Fisher-scoring iterations.
+#'   Default is 100.
+#' @param tol Convergence tolerance. Default is `1e-6`.
+#' @param trace Logical; if `TRUE`, iteration progress is printed.
+#'
+#' @return A list containing fitting control parameters.
+#'
+#' @export
+pgplsim_control <- function(
+    maxit = 100,
+    tol = 1e-6,
+    trace = FALSE
+) {
 
-build_lugplsim_basis <- function(u, qn, family_name) {
+  if (length(maxit) != 1L ||
+      !is.numeric(maxit) ||
+      is.na(maxit) ||
+      !is.finite(maxit) ||
+      maxit < 1 ||
+      maxit != floor(maxit)) {
+    stop(
+      "`maxit` must be a positive integer.",
+      call. = FALSE
+    )
+  }
+
+  if (length(tol) != 1L ||
+      !is.numeric(tol) ||
+      is.na(tol) ||
+      !is.finite(tol) ||
+      tol <= 0) {
+    stop(
+      "`tol` must be a positive finite number.",
+      call. = FALSE
+    )
+  }
+
+  if (length(trace) != 1L ||
+      !is.logical(trace) ||
+      is.na(trace)) {
+    stop(
+      "`trace` must be TRUE or FALSE.",
+      call. = FALSE
+    )
+  }
+
+  structure(
+    list(
+      maxit = as.integer(maxit),
+      tol = tol,
+      trace = trace
+    ),
+    class = "pgplsim_control"
+  )
+}
+
+build_pgplsim_basis <- function(u, qn, family_name) {
 
   u <- as.numeric(u)
 
@@ -779,7 +829,7 @@ findLogLik_bino_pkg <- function(Y, X, Z, alpha, beta, gamma, lambda, qn) {
   Z <- dataset[, (nBeta + 2):(nBeta + nAlpha + 1), drop = FALSE]
   U <- dataset[, ncol(dataset)]
 
-  basis <- build_lugplsim_basis(U, qn = qn, family_name = "binomial")
+  basis <- build_pgplsim_basis(U, qn = qn, family_name = "binomial")
   BB <- basis$BB
   BBD <- basis$BBD
 
@@ -889,7 +939,7 @@ findLogLik_pois_pkg <- function(Y, X, Z, C, alpha, beta, gamma, lambda, qn) {
   C <- dataset[, ncol(dataset) - 1]
   U <- dataset[, ncol(dataset)]
 
-  basis <- build_lugplsim_basis(U, qn = qn, family_name = "poisson")
+  basis <- build_pgplsim_basis(U, qn = qn, family_name = "poisson")
   BB <- basis$BB
   BBD <- basis$BBD
 
@@ -978,4 +1028,563 @@ findLogLik_pois_pkg <- function(Y, X, Z, C, alpha, beta, gamma, lambda, qn) {
     working_weights = mu,
     score_contributions = score_contributions
   )
+}
+
+#' Fit a generalized partially linear single-index model
+#'
+#' Fits a generalized partially linear single-index model of the form
+#'
+#' \deqn{
+#' g\{E(Y_i \mid X_i, Z_i)\}
+#' =
+#' X_i^\top \beta
+#' +
+#' \phi(Z_i^\top \alpha),
+#' }
+#'
+#' where \eqn{g(\cdot)} is the link function, \eqn{X_i} contains
+#' covariates with linear effects, \eqn{Z_i} contains covariates entering
+#' the nonlinear single-index component, \eqn{\beta} is the vector of
+#' linear coefficients, \eqn{\alpha} is the single-index coefficient
+#' vector, and \eqn{\phi(\cdot)} is an unknown smooth function estimated
+#' using spline basis functions.
+#'
+#' The single-index coefficient vector is normalized to have unit Euclidean
+#' norm. Its sign is oriented so that the first component is positive,
+#' providing an identifiable representation of the index.
+#'
+#' @param formula A two-sided model formula specifying the response and the
+#'   linear component of the model. A standard intercept is included unless
+#'   explicitly removed in the formula. For example, `y ~ x1 + x2`.
+#'
+#' @param index A one-sided formula specifying the numeric covariates entering
+#'   the nonlinear single-index component. For example, `~ z1 + z2 + z3`.
+#'   An intercept is not included in the index.
+#'
+#' @param data A data frame containing the variables referenced in `formula`
+#'   and `index`.
+#'
+#' @param family A family object describing the response distribution and
+#'   link function. Currently, `binomial()` and `poisson()` are supported.
+#'
+#' @param offset Optional numeric offset on the linear-predictor scale for
+#'   Poisson models. For an exposure such as population or person-time,
+#'   supply its logarithm; for example, `offset = log(population)`.
+#'   The offset must have the same length as the number of rows in `data`.
+#'   Missing offset values are handled jointly with missing values in the
+#'   model variables. Offsets are currently not supported for binomial models.
+#'
+#' @param M Optional positive integer controlling the spline basis
+#'   construction. If `NULL`, the default is
+#'   `ceiling(n^(1 / 3))`, where `n` is the analysis-sample size.
+#'
+#' @param lambda Positive initial smoothing parameter controlling the penalty
+#'   applied to the nonlinear component. The smoothing parameter may be
+#'   updated during model fitting. Default is `1`.
+#'
+#' @param control A control object created by [pgplsim_control()] specifying
+#'   convergence and tracing options.
+#'
+#' @details
+#' The model combines a parametric linear component with a flexible nonlinear
+#' function of a single index. The linear design matrix is constructed from
+#' `formula` using standard R model-formula conventions, including factor
+#' coding and contrasts. The single-index design matrix is constructed from
+#' `index`; index variables must currently be numeric.
+#'
+#' Rows containing missing values in the response, linear predictors,
+#' single-index predictors, or supplied offset are omitted using one common
+#' analysis sample.
+#'
+#' For Poisson models with an offset \eqn{o_i}, the fitted model is
+#'
+#' \deqn{
+#' \log\{E(Y_i \mid X_i, Z_i)\}
+#' =
+#' o_i
+#' +
+#' X_i^\top \beta
+#' +
+#' \phi(Z_i^\top \alpha).
+#' }
+#'
+#' Thus, when \eqn{E_i} is a population or person-time exposure, specify
+#' `offset = log(E_i)`.
+#'
+#' @return An object of class `"pgplsim"`. The returned object contains,
+#'   among other components:
+#'
+#' \describe{
+#'   \item{alpha_hat}{Estimated normalized single-index coefficients.}
+#'   \item{beta_hat}{Estimated coefficients for the linear component.}
+#'   \item{gamma_hat}{Estimated spline coefficients for the nonlinear
+#'     single-index component.}
+#'   \item{eta_hat}{Estimated unconstrained parameter vector used to
+#'     parameterize the normalized single-index coefficient vector
+#'     \eqn{\alpha}.}
+#'   \item{u_hat}{Estimated single-index values
+#'     \eqn{Z_i^\top \hat{\alpha}}.}
+#'   \item{linear_component}{Estimated linear contribution
+#'     \eqn{X_i^\top \hat{\beta}}.}
+#'   \item{smooth_component}{Estimated nonlinear contribution
+#'     \eqn{\hat{\phi}(Z_i^\top \hat{\alpha})}.}
+#'   \item{fitted_link}{Estimated observation-level linear predictor,
+#'     excluding any Poisson offset.}
+#'   \item{fitted_mean}{Estimated response means. For Poisson models,
+#'     the supplied offset is incorporated in these fitted means.}
+#'   \item{logLik}{Model log-likelihood evaluated at the fitted parameters.}
+#'   \item{penalized_logLik}{Penalized model log-likelihood.}
+#'   \item{converged}{Logical indicator of algorithmic convergence.}
+#'   \item{iterations}{Number of fitting iterations used.}
+#'   \item{lambda}{Final smoothing parameter used by the fitted model.}
+#'   \item{formula}{The supplied linear-component formula.}
+#'   \item{index}{The supplied single-index formula.}
+#'   \item{X}{Linear-component model matrix used for fitting.}
+#'   \item{Z}{Single-index model matrix used for fitting.}
+#'   \item{y}{Response vector used for fitting.}
+#'   \item{offset}{For Poisson models, the link-scale offset used for
+#'     fitting, or `NULL` if none was supplied.}
+#'   \item{exposure}{For Poisson models, `exp(offset)` when an offset was
+#'     supplied, and a vector of ones otherwise.}
+#'   \item{control}{A list containing the fitting settings used by the
+#'     numerical algorithm, including spline-basis and convergence controls.}
+#' }
+#'
+#' @seealso
+#' [pgplsim_control()], [predict.pgplsim()], [summary.pgplsim()],
+#' [vcov.pgplsim()], [bootstrap_pgplsim()]
+#'
+#' @examples
+#' set.seed(2026)
+#'
+#' n <- 150
+#'
+#' dat <- data.frame(
+#'   x1 = rnorm(n),
+#'   x2 = rnorm(n),
+#'   z1 = rnorm(n),
+#'   z2 = rnorm(n)
+#' )
+#'
+#' eta <- 0.5 * dat$x1 -
+#'   0.3 * dat$x2 +
+#'   sin(dat$z1 + dat$z2)
+#'
+#' dat$y <- rbinom(
+#'   n,
+#'   size = 1,
+#'   prob = plogis(eta)
+#' )
+#'
+#' fit <- pgplsim(
+#'   y ~ x1 + x2,
+#'   index = ~ z1 + z2,
+#'   data = dat,
+#'   family = binomial(),
+#'   M = 4
+#' )
+#'
+#' fit
+#'
+#' predict(
+#'   fit,
+#'   newdata = dat[1:5, ],
+#'   type = "response"
+#' )
+#'
+#' @export
+pgplsim <- function(
+    formula,
+    index,
+    data,
+    family = binomial(),
+    offset = NULL,
+    M = NULL,
+    lambda = 1,
+    control = pgplsim_control()
+) {
+
+  cl <- match.call()
+
+  ############################################################
+  # Validate public interface
+  ############################################################
+
+  if (!inherits(formula, "formula")) {
+    stop(
+      "`formula` must be a model formula.",
+      call. = FALSE
+    )
+  }
+
+  if (length(formula) != 3L) {
+    stop(
+      "`formula` must be a two-sided formula such as `y ~ x1 + x2`.",
+      call. = FALSE
+    )
+  }
+
+  if (!inherits(index, "formula")) {
+    stop(
+      "`index` must be a one-sided formula.",
+      call. = FALSE
+    )
+  }
+
+  if (length(index) != 2L) {
+    stop(
+      "`index` must be a one-sided formula such as `~ z1 + z2`.",
+      call. = FALSE
+    )
+  }
+
+  if (!is.data.frame(data)) {
+    stop(
+      "`data` must be a data frame.",
+      call. = FALSE
+    )
+  }
+
+  if (!inherits(control, "pgplsim_control")) {
+    stop(
+      "`control` must be created by `pgplsim_control()`.",
+      call. = FALSE
+    )
+  }
+
+  ############################################################
+  # Initialize and validate family
+  ############################################################
+
+  family <- initialize_family(family)
+  fam <- family$family
+
+  if (!fam %in% c("binomial", "poisson")) {
+    stop(
+      "Only `binomial()` and `poisson()` are currently supported.",
+      call. = FALSE
+    )
+  }
+
+  ############################################################
+  # Construct model frames using standard R formula semantics
+  ############################################################
+
+  formula_terms <- stats::terms(
+    formula,
+    data = data
+  )
+
+  index_terms <- stats::terms(
+    index,
+    data = data
+  )
+
+  if (attr(formula_terms, "response") != 1L) {
+    stop(
+      "`formula` must contain exactly one response.",
+      call. = FALSE
+    )
+  }
+
+  if (attr(index_terms, "response") != 0L) {
+    stop(
+      "`index` must be a one-sided formula.",
+      call. = FALSE
+    )
+  }
+
+  mf_linear_full <- stats::model.frame(
+    formula = formula_terms,
+    data = data,
+    na.action = stats::na.pass,
+    drop.unused.levels = FALSE
+  )
+
+  mf_index_full <- stats::model.frame(
+    formula = index_terms,
+    data = data,
+    na.action = stats::na.pass,
+    drop.unused.levels = FALSE
+  )
+
+  if (nrow(mf_linear_full) != nrow(data) ||
+      nrow(mf_index_full) != nrow(data)) {
+    stop(
+      paste0(
+        "Model-frame construction produced incompatible ",
+        "numbers of observations."
+      ),
+      call. = FALSE
+    )
+  }
+
+  ############################################################
+  # Validate index variables
+  ############################################################
+
+  index_classes <- vapply(
+    mf_index_full,
+    function(x) {
+      is.numeric(x) || is.integer(x)
+    },
+    logical(1)
+  )
+
+  if (!all(index_classes)) {
+    bad_index_vars <- names(mf_index_full)[!index_classes]
+
+    stop(
+      paste0(
+        "Variables in `index` must currently be numeric. ",
+        "Non-numeric variable(s): ",
+        paste(bad_index_vars, collapse = ", "),
+        "."
+      ),
+      call. = FALSE
+    )
+  }
+
+  ############################################################
+  # Determine one common analysis sample
+  ############################################################
+
+  complete <- stats::complete.cases(mf_linear_full) &
+    stats::complete.cases(mf_index_full)
+
+  ############################################################
+  # Validate public offset
+  ############################################################
+
+  if (fam == "binomial" && !is.null(offset)) {
+    stop(
+      "`offset` is currently supported only for Poisson models.",
+      call. = FALSE
+    )
+  }
+
+  if (!is.null(offset)) {
+
+    if (!is.numeric(offset)) {
+      stop(
+        "`offset` must be a numeric vector.",
+        call. = FALSE
+      )
+    }
+
+    if (length(offset) != nrow(data)) {
+      stop(
+        paste0(
+          "`offset` must have the same length as the number ",
+          "of rows in `data`."
+        ),
+        call. = FALSE
+      )
+    }
+
+    if (any(is.infinite(offset))) {
+      stop(
+        "`offset` must not contain infinite values.",
+        call. = FALSE
+      )
+    }
+
+    complete <- complete & !is.na(offset)
+  }
+
+  if (!any(complete)) {
+    stop(
+      "No complete observations remain after removing missing values.",
+      call. = FALSE
+    )
+  }
+
+  ############################################################
+  # Restrict model frames to identical observations
+  ############################################################
+
+  mf_linear <- mf_linear_full[
+    complete,
+    ,
+    drop = FALSE
+  ]
+
+  mf_index <- mf_index_full[
+    complete,
+    ,
+    drop = FALSE
+  ]
+
+  ############################################################
+  # Response
+  ############################################################
+
+  y <- stats::model.response(mf_linear)
+
+  ############################################################
+  # Linear design matrix
+  ############################################################
+
+  X <- stats::model.matrix(
+    object = stats::delete.response(formula_terms),
+    data = mf_linear
+  )
+
+  ############################################################
+  # Single-index design matrix
+  #
+  # The single-index component never contains an intercept.
+  ############################################################
+
+  index_terms_no_intercept <- stats::terms(
+    stats::update.formula(
+      index,
+      ~ . - 1
+    ),
+    data = data
+  )
+
+  Z <- stats::model.matrix(
+    object = index_terms_no_intercept,
+    data = mf_index
+  )
+
+  if (ncol(Z) < 2L) {
+    stop(
+      "`index` must contain at least two numeric predictors.",
+      call. = FALSE
+    )
+  }
+
+  ############################################################
+  # Restrict public offset to the analysis sample
+  ############################################################
+
+  if (!is.null(offset)) {
+    offset <- as.numeric(offset[complete])
+  }
+
+  ############################################################
+  # Convert public link-scale offset to internal exposure scale
+  ############################################################
+
+  internal_offset <- if (fam == "poisson") {
+
+    if (is.null(offset)) {
+
+      NULL
+
+    } else {
+
+      C <- exp(offset)
+
+      if (any(!is.finite(C))) {
+        stop(
+          paste0(
+            "`offset` contains values that are too large to ",
+            "convert safely to the exposure scale."
+          ),
+          call. = FALSE
+        )
+      }
+
+      if (any(C <= 0)) {
+        stop(
+          paste0(
+            "`offset` contains values that are too small to ",
+            "convert safely to a positive exposure."
+          ),
+          call. = FALSE
+        )
+      }
+
+      C
+    }
+
+  } else {
+    NULL
+  }
+
+  ############################################################
+  # Fit using internal matrix engine
+  ############################################################
+
+  fit <- pgplsim_fit(
+    y = y,
+    X = X,
+    Z = Z,
+    family = family,
+    offset = internal_offset,
+    M = M,
+    lambda = lambda,
+    maxit = control$maxit,
+    tol = control$tol,
+    trace = control$trace
+  )
+
+  ############################################################
+  # Store public offset semantics
+  ############################################################
+
+  if (fam == "poisson") {
+
+    fit["offset"] <- list(offset)
+
+    fit["exposure"] <- list(
+      if (is.null(internal_offset)) {
+        rep(1, length(y))
+      } else {
+        internal_offset
+      }
+    )
+
+  } else {
+
+    # Use list assignment so these components are retained
+    # explicitly as NULL rather than deleted from the fitted object.
+    fit["offset"] <- list(NULL)
+    fit["exposure"] <- list(NULL)
+  }
+
+  fit$offset_supplied <- !is.null(offset)
+
+  ############################################################
+  # Add formula-interface metadata
+  ############################################################
+
+  fit$call <- cl
+  fit$formula <- formula
+  fit$index <- index
+
+  fit$terms <- formula_terms
+  fit$index_terms <- index_terms_no_intercept
+
+  fit$contrasts <- attr(X, "contrasts")
+
+  fit$xlevels <- stats::.getXlevels(
+    formula_terms,
+    mf_linear
+  )
+
+  fit$index_contrasts <- attr(Z, "contrasts")
+
+  fit$index_xlevels <- stats::.getXlevels(
+    index_terms_no_intercept,
+    mf_index
+  )
+
+  fit$nobs <- sum(complete)
+
+  fit$na.action <- if (all(complete)) {
+    NULL
+  } else {
+    structure(
+      which(!complete),
+      class = "omit"
+    )
+  }
+
+  fit$data_names <- names(data)
+
+  fit
 }

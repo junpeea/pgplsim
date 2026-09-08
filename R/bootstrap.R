@@ -1,88 +1,100 @@
 ############################################################
-# Nonparametric bootstrap for LuGPLSIM
+# Nonparametric bootstrap for pgplsim models
 ############################################################
 
-#' Bootstrap Inference for LuGPLSIM
+#' Bootstrap Inference for pgplsim
 #'
-#' Performs a nonparametric case bootstrap for a fitted LuGPLSIM
+#' Performs a nonparametric case bootstrap for a fitted `pgplsim`
 #' model. For binomial models, a stratified bootstrap can be used
 #' to preserve the observed number of observations in each outcome
 #' category.
 #'
-#' Each bootstrap data set is refitted using [LuGPLSIM()].
+#' Each bootstrap data set is refitted using [pgplsim()].
 #'
-#' @param object A fitted object of class `"LuGPLSIM"`.
-#' @param B Number of successful bootstrap replications.
+#' @param object A fitted object of class `"pgplsim"`.
+#' @param B Number of successful bootstrap replications. Must be an integer
+#'   greater than or equal to 2.
 #' @param y Optional original response vector. If omitted,
 #'   `object$y` is used.
 #' @param X Optional original matrix of linear covariates. If omitted,
 #'   `object$X` is used.
 #' @param Z Optional original matrix of single-index covariates. If omitted,
 #'   `object$Z` is used.
-#' @param offset Optional original Poisson exposure vector. If omitted,
+#' @param offset Optional original offset vector. If omitted,
 #'   `object$offset` is used.
 #' @param method Bootstrap resampling method. `"case"` samples observations
 #'   from the full data. `"stratified"` samples separately within outcome
 #'   groups and is intended primarily for binomial models.
 #' @param seed Optional random-number seed.
-#' @param max_attempts Maximum number of attempted fits. This permits failed
-#'   bootstrap fits to be replaced until `B` successful fits are obtained.
+#' @param max_attempts Maximum number of attempted fits. Failed bootstrap
+#'   fits are replaced until `B` successful fits are obtained or this limit
+#'   is reached.
 #' @param parallel Logical; use parallel processing when `TRUE`.
-#' @param ncores Number of worker processes.
+#' @param ncores Number of worker processes used when `parallel = TRUE`.
+#'   The default is 2. During CRAN checks, the number of workers is capped
+#'   at 2.
 #' @param trace Logical; print progress information.
 #' @param keep_fits Logical; retain successful fitted model objects.
 #' @param use_starting_lambda Logical; initialize each bootstrap fit using
 #'   the smoothing parameter from the original fitted model.
-#' @param ... Additional arguments passed to [LuGPLSIM()]. Arguments supplied
+#' @param ... Additional arguments passed to [pgplsim()]. Arguments supplied
 #'   here override corresponding settings recovered from the original fit.
 #'
-#' @return An object of class `"bootstrap.LuGPLSIM"` containing bootstrap
+#' @return An object of class `"bootstrap.pgplsim"` containing bootstrap
 #'   estimates, covariance matrices, standard errors, and convergence
 #'   information.
 #'
 #' @export
-bootstrap_LuGPLSIM <- function(
+bootstrap_pgplsim <- function(
     object,
-    B = 500,
+    B = 500L,
     y = NULL,
     X = NULL,
     Z = NULL,
     offset = NULL,
     method = c("case", "stratified"),
     seed = NULL,
-    max_attempts = max(2 * B, B + 50),
+    max_attempts = max(2L * B, B + 50L),
     parallel = FALSE,
-    ncores = max(1L, parallel::detectCores(logical = FALSE) - 1L),
+    ncores = 2L,
     trace = interactive(),
     keep_fits = FALSE,
     use_starting_lambda = TRUE,
     ...
 ) {
 
-  if (!inherits(object, "LuGPLSIM")) {
-    stop("object must inherit from class 'LuGPLSIM'.", call. = FALSE)
+  if (!inherits(object, "pgplsim")) {
+    stop("object must inherit from class 'pgplsim'.", call. = FALSE)
   }
 
   method <- match.arg(method)
 
-  if (!is.numeric(B) ||
-      length(B) != 1L ||
-      !is.finite(B) ||
-      B < 2) {
-    stop("B must be an integer greater than or equal to 2.", call. = FALSE)
+  B <- validate_bootstrap_integer(
+    B,
+    name = "B",
+    lower = 2L
+  )
+
+  max_attempts <- validate_bootstrap_integer(
+    max_attempts,
+    name = "max_attempts",
+    lower = B
+  )
+
+  validate_bootstrap_flag(parallel, "parallel")
+  validate_bootstrap_flag(trace, "trace")
+  validate_bootstrap_flag(keep_fits, "keep_fits")
+  validate_bootstrap_flag(use_starting_lambda, "use_starting_lambda")
+
+  if (!is.null(seed)) {
+    seed <- validate_bootstrap_integer(
+      seed,
+      name = "seed",
+      lower = 0L
+    )
   }
 
-  B <- as.integer(B)
-
-  if (!is.numeric(max_attempts) ||
-      length(max_attempts) != 1L ||
-      max_attempts < B) {
-    stop("max_attempts must be at least B.", call. = FALSE)
-  }
-
-  max_attempts <- as.integer(max_attempts)
-
-  original_data <- recover_lugplsim_data(
+  original_data <- recover_pgplsim_data(
     object = object,
     y = y,
     X = X,
@@ -95,11 +107,10 @@ bootstrap_LuGPLSIM <- function(
   Z <- original_data$Z
   offset <- original_data$offset
 
-  n <- length(y)
   family_name <- object$family$family
 
   if (method == "stratified" &&
-      family_name != "binomial") {
+      !identical(family_name, "binomial")) {
     warning(
       paste0(
         "method = 'stratified' is primarily intended for binomial ",
@@ -114,7 +125,7 @@ bootstrap_LuGPLSIM <- function(
   }
 
   # Pre-generate resampling indices so serial and parallel runs use
-  # exactly the same bootstrap samples.
+  # the same bootstrap samples.
   index_list <- lapply(
     seq_len(max_attempts),
     function(i) {
@@ -125,15 +136,15 @@ bootstrap_LuGPLSIM <- function(
     }
   )
 
-  fit_control <- recover_lugplsim_control(
+  fit_control <- recover_pgplsim_control(
     object = object,
     use_starting_lambda = use_starting_lambda,
     extra_arguments = list(...)
   )
 
-  dims <- lugplsim_parameter_dimensions(object)
+  dims <- pgplsim_parameter_dimensions(object)
 
-  original_estimates <- extract_lugplsim_estimates(
+  original_estimates <- extract_pgplsim_estimates(
     object,
     dims = dims
   )
@@ -144,10 +155,10 @@ bootstrap_LuGPLSIM <- function(
     X_b <- X[index, , drop = FALSE]
     Z_b <- Z[index, , drop = FALSE]
 
-    if (is.null(offset)) {
-      offset_b <- NULL
+    offset_b <- if (is.null(offset)) {
+      NULL
     } else {
-      offset_b <- offset[index]
+      offset[index]
     }
 
     args <- c(
@@ -162,11 +173,17 @@ bootstrap_LuGPLSIM <- function(
     )
 
     fit_b <- tryCatch(
-      do.call(LuGPLSIM, args),
+      do.call(pgplsim_fit, args),
       error = function(e) e
     )
 
     if (inherits(fit_b, "error")) {
+
+      message(
+        "BOOTSTRAP REFIT ERROR: ",
+        conditionMessage(fit_b)
+      )
+
       return(
         list(
           success = FALSE,
@@ -179,7 +196,7 @@ bootstrap_LuGPLSIM <- function(
     }
 
     estimates <- tryCatch(
-      extract_lugplsim_estimates(
+      extract_pgplsim_estimates(
         fit_b,
         dims = dims
       ),
@@ -187,7 +204,13 @@ bootstrap_LuGPLSIM <- function(
     )
 
     valid <- !is.null(estimates) &&
-      all(vapply(estimates, function(x) all(is.finite(x)), logical(1)))
+      all(
+        vapply(
+          estimates,
+          function(x) all(is.finite(x)),
+          logical(1)
+        )
+      )
 
     converged <- isTRUE(fit_b$converged)
 
@@ -208,22 +231,24 @@ bootstrap_LuGPLSIM <- function(
 
   if (parallel) {
 
-    ncores <- as.integer(ncores)
+    ncores <- validate_bootstrap_integer(
+      ncores,
+      name = "ncores",
+      lower = 1L
+    )
 
-    if (!is.finite(ncores) || ncores < 1L) {
-      stop("ncores must be a positive integer.", call. = FALSE)
-    }
+    ncores <- limit_bootstrap_cores(ncores)
 
-    results <- run_lugplsim_bootstrap_parallel(
+    results <- run_pgplsim_bootstrap_parallel(
       index_list = index_list,
       worker = worker,
       ncores = ncores,
       trace = trace
     )
+
   } else {
 
     results <- vector("list", max_attempts)
-
     successful <- 0L
 
     for (i in seq_len(max_attempts)) {
@@ -296,7 +321,11 @@ bootstrap_LuGPLSIM <- function(
   failed_messages <- vapply(
     results[!success_indicator],
     function(x) {
-      if (is.null(x$message)) NA_character_ else x$message
+      if (is.null(x$message)) {
+        NA_character_
+      } else {
+        x$message
+      }
     },
     character(1)
   )
@@ -337,9 +366,80 @@ bootstrap_LuGPLSIM <- function(
     seed = seed
   )
 
-  class(out) <- "bootstrap.LuGPLSIM"
+  class(out) <- "bootstrap.pgplsim"
 
   out
+}
+
+
+############################################################
+# Internal validation helpers
+############################################################
+
+validate_bootstrap_integer <- function(
+    x,
+    name,
+    lower = 0L
+) {
+
+  if (!is.numeric(x) ||
+      length(x) != 1L ||
+      is.na(x) ||
+      !is.finite(x) ||
+      x != floor(x) ||
+      x < lower ||
+      x > .Machine$integer.max) {
+    stop(
+      sprintf(
+        "%s must be a single integer greater than or equal to %d.",
+        name,
+        as.integer(lower)
+      ),
+      call. = FALSE
+    )
+  }
+
+  as.integer(x)
+}
+
+
+validate_bootstrap_flag <- function(
+    x,
+    name
+) {
+
+  if (!is.logical(x) ||
+      length(x) != 1L ||
+      is.na(x)) {
+    stop(
+      sprintf("%s must be TRUE or FALSE.", name),
+      call. = FALSE
+    )
+  }
+
+  invisible(TRUE)
+}
+
+
+limit_bootstrap_cores <- function(ncores) {
+
+  detected <- suppressWarnings(
+    parallel::detectCores(logical = FALSE)
+  )
+
+  if (length(detected) == 1L &&
+      is.finite(detected) &&
+      detected >= 1L) {
+    ncores <- min(ncores, as.integer(detected))
+  }
+
+  # CRAN's incoming checks request that packages limit parallel
+  # computation. Respect that request explicitly.
+  if (nzchar(Sys.getenv("_R_CHECK_LIMIT_CORES_"))) {
+    ncores <- min(ncores, 2L)
+  }
+
+  max(1L, ncores)
 }
 
 
@@ -347,7 +447,7 @@ bootstrap_LuGPLSIM <- function(
 # Recover original fitting data
 ############################################################
 
-recover_lugplsim_data <- function(
+recover_pgplsim_data <- function(
     object,
     y = NULL,
     X = NULL,
@@ -376,7 +476,7 @@ recover_lugplsim_data <- function(
       paste0(
         "The original y, X, and Z are required for bootstrapping.\n",
         "Either store them in the fitted object or supply them explicitly:\n",
-        "  bootstrap_LuGPLSIM(fit, y = y, X = X, Z = Z)"
+        "  bootstrap_pgplsim(fit, y = y, X = X, Z = Z)"
       ),
       call. = FALSE
     )
@@ -395,6 +495,18 @@ recover_lugplsim_data <- function(
     )
   }
 
+  if (anyNA(y) || any(!is.finite(y))) {
+    stop("y must contain only finite, non-missing values.", call. = FALSE)
+  }
+
+  if (anyNA(X) || any(!is.finite(X))) {
+    stop("X must contain only finite, non-missing values.", call. = FALSE)
+  }
+
+  if (anyNA(Z) || any(!is.finite(Z))) {
+    stop("Z must contain only finite, non-missing values.", call. = FALSE)
+  }
+
   if (!is.null(offset)) {
 
     offset <- as.numeric(offset)
@@ -402,6 +514,13 @@ recover_lugplsim_data <- function(
     if (length(offset) != n) {
       stop(
         "offset must have the same length as y.",
+        call. = FALSE
+      )
+    }
+
+    if (anyNA(offset) || any(!is.finite(offset))) {
+      stop(
+        "offset must contain only finite, non-missing values.",
         call. = FALSE
       )
     }
@@ -420,7 +539,7 @@ recover_lugplsim_data <- function(
 # Recover fitting-control arguments
 ############################################################
 
-recover_lugplsim_control <- function(
+recover_pgplsim_control <- function(
     object,
     use_starting_lambda,
     extra_arguments
@@ -454,6 +573,15 @@ recover_lugplsim_control <- function(
 
   # User-supplied arguments override recovered settings.
   if (length(extra_arguments) > 0L) {
+
+    if (is.null(names(extra_arguments)) ||
+        any(!nzchar(names(extra_arguments)))) {
+      stop(
+        "All arguments supplied through ... must be named.",
+        call. = FALSE
+      )
+    }
+
     control[names(extra_arguments)] <- extra_arguments
   }
 
@@ -511,9 +639,9 @@ bootstrap_sample_indices <- function(
 # Extract estimates from one fitted model
 ############################################################
 
-extract_lugplsim_estimates <- function(
+extract_pgplsim_estimates <- function(
     object,
-    dims = lugplsim_parameter_dimensions(object)
+    dims = pgplsim_parameter_dimensions(object)
 ) {
 
   alpha <- as.numeric(object$alpha_hat)
@@ -531,7 +659,10 @@ extract_lugplsim_estimates <- function(
       length(beta) != dims$p_beta ||
       length(gamma) != dims$p_gamma) {
     stop(
-      "Bootstrap fit has parameter dimensions different from the original fit.",
+      paste0(
+        "Bootstrap fit has parameter dimensions different ",
+        "from the original fit."
+      ),
       call. = FALSE
     )
   }
@@ -573,6 +704,7 @@ combine_bootstrap_estimates <- function(
   out <- lapply(
     estimate_names,
     function(component) {
+
       matrix_component <- do.call(
         rbind,
         lapply(
@@ -627,7 +759,7 @@ compute_bootstrap_covariances <- function(
 # Parallel bootstrap execution
 ############################################################
 
-run_lugplsim_bootstrap_parallel <- function(
+run_pgplsim_bootstrap_parallel <- function(
     index_list,
     worker,
     ncores,
@@ -641,10 +773,15 @@ run_lugplsim_bootstrap_parallel <- function(
     add = TRUE
   )
 
-  # The package must be installed or loaded in each worker.
-  parallel::clusterEvalQ(
+  # Load the renamed package namespace explicitly on PSOCK workers.
+  # loadNamespace() is preferred here to attaching the package with library().
+  parallel::clusterCall(
     cluster,
-    library(LuGPLSIM)
+    function(package) {
+      loadNamespace(package)
+      invisible(NULL)
+    },
+    "pgplsim"
   )
 
   results <- parallel::parLapply(
@@ -654,6 +791,7 @@ run_lugplsim_bootstrap_parallel <- function(
   )
 
   if (trace) {
+
     successful <- sum(
       vapply(
         results,
@@ -679,22 +817,22 @@ run_lugplsim_bootstrap_parallel <- function(
 # Print bootstrap result
 ############################################################
 
-#' Print a LuGPLSIM Bootstrap Result
+#' Print a pgplsim Bootstrap Result
 #'
-#' @param x An object of class `"bootstrap.LuGPLSIM"`.
+#' @param x An object of class `"bootstrap.pgplsim"`.
 #' @param digits Number of significant digits.
 #' @param ... Additional arguments, currently ignored.
 #'
 #' @return Invisibly returns `x`.
 #'
 #' @export
-print.bootstrap.LuGPLSIM <- function(
+print.bootstrap.pgplsim <- function(
     x,
     digits = max(3L, getOption("digits") - 3L),
     ...
 ) {
 
-  cat("\nLuGPLSIM Bootstrap Inference\n")
+  cat("\npgplsim Bootstrap Inference\n")
   cat("===========================\n")
   cat("Method:              ", x$method, "\n", sep = "")
   cat("Successful fits:     ", x$B, "\n", sep = "")
@@ -702,16 +840,10 @@ print.bootstrap.LuGPLSIM <- function(
   cat("Failed fits:         ", x$failures, "\n", sep = "")
 
   cat("\nBootstrap standard errors: alpha\n")
-
-  print(
-    round(x$se_alpha, digits)
-  )
+  print(round(x$se_alpha, digits))
 
   cat("\nBootstrap standard errors: beta\n")
-
-  print(
-    round(x$se_beta, digits)
-  )
+  print(round(x$se_beta, digits))
 
   invisible(x)
 }

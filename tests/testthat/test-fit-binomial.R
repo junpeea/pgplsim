@@ -1,12 +1,13 @@
-test_that("binomial LuGPLSIM fit has expected structure", {
+test_that("binomial pgplsim fit has expected structure", {
 
   dat <- make_binomial_test_data()
 
-  fit <- LuGPLSIM(
+  fit <- pgplsim:::pgplsim_fit(
     y = dat$y,
     X = dat$X,
     Z = dat$Z,
-    family = binomial(),
+    family = poisson(),
+    offset = dat$exposure,
     M = 4,
     maxit = 30,
     tol = 1e-5
@@ -14,7 +15,7 @@ test_that("binomial LuGPLSIM fit has expected structure", {
 
   expect_s3_class(
     fit,
-    "LuGPLSIM"
+    "pgplsim"
   )
 
   expect_length(
@@ -50,7 +51,7 @@ test_that("binomial fitted probabilities are valid", {
 
   dat <- make_binomial_test_data()
 
-  fit <- LuGPLSIM(
+  fit <- pgplsim:::pgplsim_fit(
     y = dat$y,
     X = dat$X,
     Z = dat$Z,

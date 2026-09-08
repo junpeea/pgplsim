@@ -1,5 +1,5 @@
 ---
-title: "Simulation Study with PSPLINE"
+title: "Simulation Study with pgplsim"
 author: "Yoon-Bae Jun"
 date: "`r Sys.Date()`"
 output:
@@ -7,7 +7,7 @@ output:
     toc: true
     number_sections: true
 vignette: >
-  %\VignetteIndexEntry{Simulation Study with PSPLINE}
+  %\VignetteIndexEntry{Simulation Study with pgplsim}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -21,7 +21,7 @@ knitr::opts_chunk$set(
   warning = FALSE,
   message = FALSE
 )
-library(PSPLINE)
+library(pgplsim)
 ```
 
 # Purpose

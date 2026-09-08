@@ -1,16 +1,16 @@
 ############################################################
-# Print method for LuGPLSIM
+# Print method for pgplsim
 ############################################################
 
-#' Print a LuGPLSIM object
+#' Print a pgplsim object
 #'
-#' @param x An object of class `"LuGPLSIM"`.
+#' @param x An object of class `"pgplsim"`.
 #' @param ... Additional arguments, currently ignored.
 #'
 #' @return Invisibly returns `x`.
 #'
 #' @export
-print.LuGPLSIM <- function(x, ...) {
+print.pgplsim <- function(x, ...) {
 
   fam <- if (!is.null(x$family$family)) x$family$family else "unknown"
 

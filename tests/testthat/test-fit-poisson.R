@@ -1,8 +1,8 @@
-test_that("Poisson LuGPLSIM fit has expected structure", {
+test_that("Poisson pgplsim fit has expected structure", {
 
   dat <- make_poisson_test_data()
 
-  fit <- LuGPLSIM(
+  fit <- pgplsim:::pgplsim_fit(
     y = dat$y,
     X = dat$X,
     Z = dat$Z,
@@ -15,7 +15,7 @@ test_that("Poisson LuGPLSIM fit has expected structure", {
 
   expect_s3_class(
     fit,
-    "LuGPLSIM"
+    "pgplsim"
   )
 
   expect_length(

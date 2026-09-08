@@ -2,7 +2,7 @@ test_that("estimated alpha satisfies identifiability constraints", {
 
   dat <- make_binomial_test_data()
 
-  fit <- LuGPLSIM(
+  fit <- pgplsim:::pgplsim_fit(
     y = dat$y,
     X = dat$X,
     Z = dat$Z,
