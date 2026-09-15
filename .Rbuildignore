@@ -1,5 +1,6 @@
-^LuGPLSIM\.Rproj$
+^.*\.Rproj$
 ^\.Rproj\.user$
+^research$
 ^LICENSE\.md$
 ^doc$
 ^Meta$

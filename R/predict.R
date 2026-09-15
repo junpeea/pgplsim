@@ -623,7 +623,7 @@ predict.pgplsim <- function(
           paste0(
             "The fitted object does not contain the spline ",
             "specification required for prediction. Refit the ",
-            "model using the current PSPLINE version."
+            "model using the current pgplsim version."
           ),
           call. = FALSE
         )

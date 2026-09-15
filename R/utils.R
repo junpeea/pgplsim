@@ -1,5 +1,5 @@
 ############################################################
-# Utility functions for LuGPLSIM
+# # Utility functions for pgplsim
 ############################################################
 
 alpha_from_theta <- function(theta) {
