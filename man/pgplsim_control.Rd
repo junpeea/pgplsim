@@ -20,3 +20,13 @@ A list containing fitting control parameters.
 \description{
 Specifies computational control parameters used by \code{\link[=pgplsim]{pgplsim()}}.
 }
+\examples{
+ctrl <- pgplsim_control(
+  maxit = 200,
+  tol = 1e-7,
+  trace = FALSE
+)
+
+ctrl
+
+}

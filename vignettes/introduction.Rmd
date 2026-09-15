@@ -60,9 +60,9 @@ specifies the variables entering the single-index component.
 
 # Installation
 
-The development version can be installed from GitHub with:
+The development version of `pgplsim` can be installed from GitHub with:
 
-```{r installation, eval=FALSE}
+```{r installation-github, eval=FALSE}
 remotes::install_github("junpeea/pgplsim")
 ```
 
@@ -70,6 +70,12 @@ Load the package with:
 
 ```{r load-package}
 library(pgplsim)
+```
+
+Once released on CRAN, install `pgplsim` with:
+
+```{r installation-cran, eval=FALSE}
+install.packages("pgplsim")
 ```
 
 # A binomial example
@@ -156,8 +162,11 @@ The first quantity should be close to 1, and the first component of
 # Prediction components
 
 Predictions follow the standard R `newdata` convention. The package can return
-the estimated index, nonlinear smooth component, linear component, full linear
-predictor, or response-scale fitted value.
+the estimated index, nonlinear smooth component, linear component, model
+predictor on the link scale, or response-scale fitted value. For Poisson
+models, `type = "response"` incorporates the applicable offset, whereas the
+model components describe the fitted partially linear single-index structure
+apart from the offset.
 
 ```{r prediction-components}
 u_hat <- predict(
@@ -213,9 +222,6 @@ head(
   )
 )
 ```
-
-The package also retains `newX` and `newZ` as a backward-compatible,
-lower-level prediction interface. For new code, `newdata` is recommended.
 
 # Plot the nonlinear component
 
@@ -307,8 +313,11 @@ vcov(
 
 Bootstrap inference is available through `bootstrap_pgplsim()`.
 
-The following example is not evaluated during vignette construction because a
-substantive bootstrap can be computationally intensive.
+The following example is not evaluated during vignette construction because
+bootstrap inference can be computationally intensive. The choice `B = 500`
+illustrates a substantive analysis; in applications, the number of bootstrap
+replications should be chosen to provide adequate Monte Carlo precision for
+the inferential quantities of interest.
 
 ```{r bootstrap-example, eval=FALSE}
 boot_binomial <- bootstrap_pgplsim(
@@ -449,8 +458,6 @@ example, `offset = 0` corresponds to exposure equal to 1.
 5. Use model-based covariance for routine summaries and bootstrap inference
    when uncertainty in the estimated index direction is especially important.
 6. Avoid extrapolating far beyond the range of the fitted single index.
-7. Run `devtools::test()` and `devtools::check()` before committing package
-   changes.
 
 # Session information
 

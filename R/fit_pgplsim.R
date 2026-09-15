@@ -552,6 +552,15 @@ initialize_beta_gamma <- function(y, X, Z, C, alpha, family, qn) {
 #'
 #' @return A list containing fitting control parameters.
 #'
+#' @examples
+#' ctrl <- pgplsim_control(
+#'   maxit = 200,
+#'   tol = 1e-7,
+#'   trace = FALSE
+#' )
+#'
+#' ctrl
+#'
 #' @export
 pgplsim_control <- function(
     maxit = 100,
@@ -1184,7 +1193,7 @@ findLogLik_pois_pkg <- function(Y, X, Z, C, alpha, beta, gamma, lambda, qn) {
 #'   M = 4
 #' )
 #'
-#' fit
+#' summary(fit)
 #'
 #' predict(
 #'   fit,

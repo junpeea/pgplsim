@@ -83,3 +83,40 @@ category.
 \details{
 Each bootstrap data set is refitted using \code{\link[=pgplsim]{pgplsim()}}.
 }
+\examples{
+set.seed(2026)
+
+n <- 100
+
+dat <- data.frame(
+  x1 = rnorm(n),
+  z1 = rnorm(n),
+  z2 = rnorm(n)
+)
+
+eta <- 0.5 * dat$x1 + sin(dat$z1 + dat$z2)
+
+dat$y <- rbinom(
+  n,
+  size = 1,
+  prob = plogis(eta)
+)
+
+fit <- pgplsim(
+  y ~ x1,
+  index = ~ z1 + z2,
+  data = dat,
+  family = stats::binomial(),
+  M = 4
+)
+
+boot <- bootstrap_pgplsim(
+  fit,
+  B = 2,
+  method = "stratified",
+  seed = 2026
+)
+
+boot
+
+}

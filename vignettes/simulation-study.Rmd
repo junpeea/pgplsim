@@ -27,14 +27,17 @@ library(pgplsim)
 
 # Purpose
 
-This vignette illustrates a small Monte Carlo study for a generalized
-partially linear single-index model. It evaluates bias, empirical standard
-deviation, average model-based standard error, root mean squared error,
-confidence-interval coverage, convergence, and estimation of the nonlinear
-function.
+This vignette illustrates how `pgplsim` can be evaluated in a small Monte
+Carlo experiment. The workflow computes bias, empirical standard deviation,
+average model-based standard error, root mean squared error, Wald
+confidence-interval coverage, convergence, and recovery of the nonlinear
+component.
 
-The number of replications is deliberately small so the vignette builds
-quickly. Increase it substantially for a publication-quality study.
+The number of replications is deliberately small so that the vignette builds
+quickly. The resulting Monte Carlo summaries are illustrative only and should
+not be interpreted as a formal evaluation of the statistical properties of
+the estimator. A publication-quality simulation study should use substantially
+more replications and examine multiple data-generating scenarios.
 
 # Data-generating mechanism
 
@@ -52,13 +55,25 @@ where
 \alpha_0=\frac{(1,1,1)^\top}{\sqrt{3}},
 \qquad
 \beta_0=(1,-0.5)^\top,
+\]
+
+with the nonlinear component generated as
+
+\[
+\phi_i
+=
+\sin(2u_i)
+-
+\frac{1}{n}\sum_{j=1}^{n}\sin(2u_j),
 \qquad
-\phi(u)=\sin(2u)-E\{\sin(2u)\}.
+u_i=Z_i^\top\alpha_0.
 \]
 
 The data-generating model contains no separate intercept in the linear
 component. Therefore, the formula used below explicitly removes the default
-R intercept with `0 +`.
+R intercept with `0 +`. The sample centering of the nonlinear component
+matches the no-intercept parameterization used in this illustrative
+simulation.
 
 # Simulation functions
 
@@ -185,7 +200,9 @@ cbind(
 # Monte Carlo loop
 
 The following loop repeats the same fitting procedure on independently
-simulated samples.
+simulated samples. Fitting errors and completed fits that fail to report
+convergence are retained separately so that the two types of failure can be
+distinguished.
 
 ```{r monte-carlo}
 n_rep <- 20
@@ -252,11 +269,18 @@ for (r in seq_len(n_rep)) {
 
 # Combine successful replications
 
-A replication is retained for the performance summary only if the model fit
-completed successfully and reported convergence.
+A replication is retained for the parameter-performance summaries only if the
+model fit completed successfully and reported convergence. Fitting errors and
+nonconverged completed fits are nevertheless counted separately.
 
 ```{r combine-results}
-successful <- vapply(
+fit_completed <- vapply(
+  simulation_results,
+  function(x) isTRUE(x$success),
+  logical(1)
+)
+
+converged <- vapply(
   simulation_results,
   function(x) {
     isTRUE(x$success) &&
@@ -265,11 +289,21 @@ successful <- vapply(
   logical(1)
 )
 
-sum(successful)
-mean(successful)
+successful <- converged
 
 successful_results <-
   simulation_results[successful]
+
+data.frame(
+  requested_replications = n_rep,
+  completed_fits = sum(fit_completed),
+  converged_fits = sum(converged),
+  fitting_errors = sum(!fit_completed),
+  nonconverged_fits = sum(
+    fit_completed & !converged
+  ),
+  convergence_rate = mean(converged)
+)
 ```
 
 For this small illustrative simulation, at least one successful replication is
@@ -394,6 +428,21 @@ summarize_parameter_block <- function(
 }
 ```
 
+## A note on inference for the index direction
+
+The index vector \(\alpha\) is subject to the identifiability constraints
+\(\|\alpha\|=1\) and \(\alpha_1>0\). Consequently, its components are not
+unconstrained Euclidean parameters. The componentwise model-based standard
+errors and Wald coverage summaries below describe the inferential quantities
+returned by the current implementation, but they should be interpreted with
+the normalization constraint in mind.
+
+In particular, the small simulation below is intended to illustrate how these
+quantities can be summarized rather than to establish the finite-sample
+coverage properties of componentwise Wald intervals for \(\alpha\). Bootstrap
+inference provides an alternative approach and is illustrated later without
+being executed during vignette construction.
+
 ## Index coefficients
 
 ```{r performance-alpha}
@@ -411,6 +460,51 @@ alpha_summary <-
 
 alpha_summary
 ```
+
+Because \(\alpha\) represents an index direction, it is also useful to assess
+recovery of the vector as a whole rather than only its individual components.
+Under the package sign constraint, angular error provides a direct measure of
+the discrepancy between the true and estimated index directions.
+
+```{r performance-alpha-direction}
+alpha_true <- dat_one$alpha_true
+
+cosine_similarity <- as.numeric(
+  alpha_estimates %*% alpha_true
+)
+
+cosine_similarity <- pmin(
+  1,
+  pmax(-1, cosine_similarity)
+)
+
+angular_error_deg <- acos(
+  cosine_similarity
+) * 180 / pi
+
+data.frame(
+  mean_angular_error_deg =
+    mean(angular_error_deg),
+  median_angular_error_deg =
+    median(angular_error_deg),
+  rmse_alpha_vector = sqrt(
+    mean(
+      rowSums(
+        sweep(
+          alpha_estimates,
+          2,
+          alpha_true,
+          FUN = "-"
+        )^2
+      )
+    )
+  )
+)
+```
+
+An angular error of zero degrees corresponds to perfect recovery of the true
+index direction. These summaries remain illustrative because only a small
+number of Monte Carlo replications is used.
 
 ## Linear coefficients
 
@@ -432,11 +526,19 @@ beta_summary
 
 # Convergence and smoothing summaries
 
+The convergence summary distinguishes fitting errors from fits that completed
+but did not satisfy the package convergence criterion.
+
 ```{r convergence-summary}
 data.frame(
-  successful_replications = sum(successful),
   requested_replications = n_rep,
-  convergence_rate = mean(successful),
+  completed_fits = sum(fit_completed),
+  converged_fits = sum(converged),
+  fitting_errors = sum(!fit_completed),
+  nonconverged_fits = sum(
+    fit_completed & !converged
+  ),
+  convergence_rate = mean(converged),
   mean_iterations = mean(iteration_values),
   median_iterations = median(iteration_values),
   mean_lambda = mean(lambda_values),
@@ -445,8 +547,8 @@ data.frame(
 ```
 
 Because this vignette uses only a small number of replications, these summaries
-are intended to illustrate the workflow rather than provide definitive
-Monte Carlo evidence.
+are intended to illustrate the workflow rather than provide definitive Monte
+Carlo evidence.
 
 # Estimated nonlinear function
 
@@ -503,15 +605,21 @@ legend(
 )
 ```
 
-The fitted index is identifiable only under the package normalization
-constraint on \(\alpha\), while the smooth is estimated on the fitted
-single-index scale.
+The two curves are shown on their respective true and estimated single-index
+scales. Therefore, discrepancies between them can reflect both estimation of
+the index direction \(\alpha\) and estimation of the smooth function
+\(\phi(\cdot)\). This figure should be interpreted as recovery of the combined
+single-index structure rather than as an isolated measure of smooth-function
+estimation error.
 
 # Optional bootstrap comparison
 
 Bootstrap inference is available through `bootstrap_pgplsim()`. The example
-below is not evaluated during vignette construction because a substantive
-bootstrap may be computationally intensive.
+below is not evaluated during vignette construction because bootstrap
+inference can be computationally intensive. The choice `B = 500` illustrates
+a substantive analysis; in applications, the number of bootstrap replications
+should be chosen to provide adequate Monte Carlo precision for the inferential
+quantities of interest.
 
 ```{r bootstrap-comparison, eval=FALSE}
 boot_one <- bootstrap_pgplsim(

@@ -125,15 +125,19 @@ nhanes_analysis <- nhanes_analysis[
   drop = FALSE
 ]
 
-nhanes_analysis$diabetes_binary <- ifelse(
-  as.character(
-    nhanes_analysis$Diabetes
-  ) == "Yes",
-  1,
-  0
+nhanes_analysis <- nhanes_analysis[
+  as.character(nhanes_analysis$Diabetes) %in%
+    c("Yes", "No"),
+  ,
+  drop = FALSE
+]
+
+nhanes_analysis$diabetes_binary <- as.integer(
+  as.character(nhanes_analysis$Diabetes) == "Yes"
 )
 
 table(
+  nhanes_analysis$Diabetes,
   nhanes_analysis$diabetes_binary
 )
 
@@ -185,6 +189,12 @@ index_scale <- vapply(
   sd,
   numeric(1)
 )
+
+if (any(!is.finite(index_scale) | index_scale <= 0)) {
+  stop(
+    "All index variables must have positive finite standard deviations."
+  )
+}
 
 nhanes_analysis$BMI_z <- (
   nhanes_analysis$BMI -
@@ -283,6 +293,13 @@ sum(
 
 fit_nhanes$alpha_hat[1]
 ```
+
+Because the index vector is constrained for identifiability, its components
+are not unconstrained regression coefficients. The reported componentwise
+model-based standard errors should therefore be interpreted together with the
+unit-norm and sign constraints rather than as inference for unrelated
+Euclidean parameters. Bootstrap inference is illustrated later as an
+alternative uncertainty assessment.
 
 # Plot the estimated nonlinear association
 
@@ -385,7 +402,8 @@ mean(
 
 This is an apparent, in-sample summary and will generally be optimistic.
 Cross-validation or external validation should be used for formal predictive
-assessment.
+assessment. The 0.5 threshold is used only for illustration and is not
+presented as an optimal clinical or epidemiologic decision threshold.
 
 # Compare with logistic regression
 
@@ -411,7 +429,9 @@ fit_glm <- glm(
 summary(fit_glm)
 ```
 
-A simple log-likelihood comparison is:
+## Descriptive log-likelihood values
+
+For reference, the fitted log-likelihood values are:
 
 ```{r compare-loglik, eval=has_nhanes}
 data.frame(
@@ -428,9 +448,11 @@ data.frame(
 )
 ```
 
-This comparison should be interpreted cautiously. The `pgplsim` model contains
-a penalized nonlinear smooth, so its effective complexity is not represented
-by a simple raw parameter count.
+These values are reported descriptively and should not be treated as a formal
+model-selection comparison. The `pgplsim` fit contains a penalized nonlinear
+component whose effective complexity is not represented by an ordinary raw
+parameter count. Formal predictive comparison would require an appropriate
+out-of-sample or cross-validation procedure.
 
 # Optional generalized additive model
 
@@ -502,9 +524,12 @@ dim(V_beta)
 
 # Optional bootstrap inference
 
-Bootstrap inference is available through `bootstrap_pgplsim()`. The following
-code is not evaluated when the vignette is built because a substantive
-bootstrap can be computationally intensive.
+Bootstrap inference is available through `bootstrap_pgplsim()`. The example
+below is not evaluated during vignette construction because bootstrap
+inference can be computationally intensive. The choice `B = 500` illustrates
+a substantive analysis; in applications, the number of bootstrap replications
+should be chosen to provide adequate Monte Carlo precision for the inferential
+quantities of interest.
 
 ```{r bootstrap-nhanes, eval=FALSE}
 boot_nhanes <- bootstrap_pgplsim(

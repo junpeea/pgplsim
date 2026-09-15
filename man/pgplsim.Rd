@@ -166,7 +166,7 @@ fit <- pgplsim(
   M = 4
 )
 
-fit
+summary(fit)
 
 predict(
   fit,
