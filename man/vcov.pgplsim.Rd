@@ -33,7 +33,10 @@ unconstrained parameter vector.}
 \item{...}{Additional arguments, currently ignored.}
 }
 \value{
-A variance-covariance matrix.
+A variance-covariance matrix for the parameter block selected by
+\code{component}. The default \code{component = "parameters"} returns the covariance
+matrix for the normalized single-index coefficients \code{alpha} together with
+the linear coefficients \code{beta}.
 }
 \description{
 Extracts model-based, sandwich, leverage-adjusted,

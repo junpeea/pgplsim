@@ -21,12 +21,11 @@
 model. If \code{NULL}, prediction uses \code{newX}/\code{newZ} when supplied; otherwise it
 uses the original design matrices stored in \code{object}.}
 
-\item{newX}{Optional matrix of linear-component covariates. Retained for
-backward compatibility and low-level use. Do not supply together with
-\code{newdata}.}
+\item{newX}{Optional matrix of linear-component covariates for low-level
+matrix-based prediction. Do not supply together with \code{newdata}.}
 
-\item{newZ}{Optional matrix of single-index covariates. Retained for backward
-compatibility and low-level use. Do not supply together with \code{newdata}.}
+\item{newZ}{Optional matrix of single-index covariates for low-level
+matrix-based prediction. Do not supply together with \code{newdata}.}
 
 \item{type}{Character string specifying the prediction scale. One of
 \code{"response"}, \code{"link"}, \code{"index"}, \code{"smooth"}, or \code{"linear"}.}
@@ -55,6 +54,7 @@ normally be supplied through \code{newdata}. The linear and single-index design
 matrices are then reconstructed automatically from the formulas stored in
 the fitted model.
 
-The \code{newX} and \code{newZ} arguments are retained for backward compatibility and
-low-level use. They should not be supplied together with \code{newdata}.
+The \code{newX} and \code{newZ} arguments provide a low-level matrix interface.
+For ordinary use, \code{newdata} is recommended. The matrix arguments should
+not be supplied together with \code{newdata}.
 }

@@ -12,8 +12,9 @@
 #' Each bootstrap data set is refitted using [pgplsim()].
 #'
 #' @param object A fitted object of class `"pgplsim"`.
-#' @param B Number of successful bootstrap replications. Must be an integer
-#'   greater than or equal to 2.
+#' @param B Target number of successful bootstrap replications. Must be an
+#'   integer greater than or equal to 2. Additional fits may be attempted
+#'   when individual bootstrap fits fail to converge.
 #' @param y Optional original response vector. If omitted,
 #'   `object$y` is used.
 #' @param X Optional original matrix of linear covariates. If omitted,
@@ -40,9 +41,11 @@
 #' @param ... Additional arguments passed to [pgplsim()]. Arguments supplied
 #'   here override corresponding settings recovered from the original fit.
 #'
-#' @return An object of class `"bootstrap.pgplsim"` containing bootstrap
-#'   estimates, covariance matrices, standard errors, and convergence
-#'   information.
+#' @return An object of class `"bootstrap.pgplsim"` containing the original
+#'   parameter estimates, bootstrap replicate estimates, bootstrap
+#'   variance-covariance matrices and standard errors, the number of attempted
+#'   and failed fits, failure messages, and optionally the successful fitted
+#'   model objects when `keep_fits = TRUE`.
 #'
 #' @export
 bootstrap_pgplsim <- function(

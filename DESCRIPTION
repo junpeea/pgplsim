@@ -19,6 +19,7 @@ Description: Implements penalized generalized partially linear single-index
     prediction, and inference.
 License: MIT + file LICENSE
 Encoding: UTF-8
+Language: en-US
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Imports:

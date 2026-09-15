@@ -25,8 +25,9 @@ bootstrap_pgplsim(
 \arguments{
 \item{object}{A fitted object of class \code{"pgplsim"}.}
 
-\item{B}{Number of successful bootstrap replications. Must be an integer
-greater than or equal to 2.}
+\item{B}{Target number of successful bootstrap replications. Must be an
+integer greater than or equal to 2. Additional fits may be attempted
+when individual bootstrap fits fail to converge.}
 
 \item{y}{Optional original response vector. If omitted,
 \code{object$y} is used.}
@@ -67,9 +68,11 @@ the smoothing parameter from the original fitted model.}
 here override corresponding settings recovered from the original fit.}
 }
 \value{
-An object of class \code{"bootstrap.pgplsim"} containing bootstrap
-estimates, covariance matrices, standard errors, and convergence
-information.
+An object of class \code{"bootstrap.pgplsim"} containing the original
+parameter estimates, bootstrap replicate estimates, bootstrap
+variance-covariance matrices and standard errors, the number of attempted
+and failed fits, failure messages, and optionally the successful fitted
+model objects when \code{keep_fits = TRUE}.
 }
 \description{
 Performs a nonparametric case bootstrap for a fitted \code{pgplsim}

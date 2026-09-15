@@ -8,18 +8,18 @@
 #' matrices are then reconstructed automatically from the formulas stored in
 #' the fitted model.
 #'
-#' The `newX` and `newZ` arguments are retained for backward compatibility and
-#' low-level use. They should not be supplied together with `newdata`.
+#' The `newX` and `newZ` arguments provide a low-level matrix interface.
+#' For ordinary use, `newdata` is recommended. The matrix arguments should
+#' not be supplied together with `newdata`.
 #'
 #' @param object A fitted object of class `"pgplsim"`.
 #' @param newdata Optional data frame containing variables used in the original
 #'   model. If `NULL`, prediction uses `newX`/`newZ` when supplied; otherwise it
 #'   uses the original design matrices stored in `object`.
-#' @param newX Optional matrix of linear-component covariates. Retained for
-#'   backward compatibility and low-level use. Do not supply together with
-#'   `newdata`.
-#' @param newZ Optional matrix of single-index covariates. Retained for backward
-#'   compatibility and low-level use. Do not supply together with `newdata`.
+#' @param newX Optional matrix of linear-component covariates for low-level
+#'   matrix-based prediction. Do not supply together with `newdata`.
+#' @param newZ Optional matrix of single-index covariates for low-level
+#'   matrix-based prediction. Do not supply together with `newdata`.
 #' @param type Character string specifying the prediction scale. One of
 #'   `"response"`, `"link"`, `"index"`, `"smooth"`, or `"linear"`.
 #' @param offset Optional numeric offset on the linear-predictor scale for

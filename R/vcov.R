@@ -43,7 +43,10 @@
 #'   unconstrained parameter vector.
 #' @param ... Additional arguments, currently ignored.
 #'
-#' @return A variance-covariance matrix.
+#' @return A variance-covariance matrix for the parameter block selected by
+#'   `component`. The default `component = "parameters"` returns the covariance
+#'   matrix for the normalized single-index coefficients `alpha` together with
+#'   the linear coefficients `beta`.
 #'
 #' @export
 vcov.pgplsim <- function(
