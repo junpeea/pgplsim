@@ -10,13 +10,13 @@ Authors@R:
     )
 Description: Implements penalized generalized partially linear single-index
     models for regression with potentially correlated predictors. The framework
-    combines a flexible nonparametric single-index component with a separate
-    linear component for covariate adjustment and applies penalization to the
-    index coefficients for estimation and variable selection. This formulation
-    enables nonlinear joint predictor effects to be represented through a
-    low-dimensional index while retaining interpretable linear effects for
-    additional covariates. The package supports generalized response
-    distributions and provides functions for model fitting and prediction.
+    combines a flexible nonparametric single-index component, represented using
+    penalized B-splines, with a separate linear component for covariate
+    adjustment. This formulation represents nonlinear joint predictor effects
+    through a low-dimensional index while retaining interpretable linear
+    effects for additional covariates. The package supports generalized
+    response distributions and provides functions for model fitting,
+    prediction, and inference.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)

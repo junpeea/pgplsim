@@ -8,7 +8,7 @@ pgplsim(
   formula,
   index,
   data,
-  family = binomial(),
+  family = stats::binomial(),
   offset = NULL,
   M = NULL,
   lambda = 1,
@@ -162,7 +162,7 @@ fit <- pgplsim(
   y ~ x1 + x2,
   index = ~ z1 + z2,
   data = dat,
-  family = binomial(),
+  family = stats::binomial(),
   M = 4
 )
 

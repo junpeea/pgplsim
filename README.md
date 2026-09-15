@@ -293,7 +293,7 @@ The package includes three tutorials.
 
 ```r
 vignette(
-  "01-introduction",
+  "introduction",
   package = "pgplsim"
 )
 ```
@@ -304,7 +304,7 @@ Introduces GPLSIM estimation, prediction, plotting, Poisson offsets, and inferen
 
 ```r
 vignette(
-  "02-simulation-study",
+  "simulation-study",
   package = "pgplsim"
 )
 ```
@@ -315,7 +315,7 @@ Illustrates a Monte Carlo simulation study and compares estimated nonlinear func
 
 ```r
 vignette(
-  "03-NHANES-diabetes",
+  "NHANES-diabetes",
   package = "pgplsim"
 )
 ```

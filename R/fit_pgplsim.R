@@ -33,7 +33,7 @@ pgplsim_fit <- function(
     y,
     X,
     Z,
-    family = binomial(),
+    family = stats::binomial(),
     offset = NULL,
     M = NULL,
     lambda = 1,
@@ -1180,7 +1180,7 @@ findLogLik_pois_pkg <- function(Y, X, Z, C, alpha, beta, gamma, lambda, qn) {
 #'   y ~ x1 + x2,
 #'   index = ~ z1 + z2,
 #'   data = dat,
-#'   family = binomial(),
+#'   family = stats::binomial(),
 #'   M = 4
 #' )
 #'
@@ -1197,7 +1197,7 @@ pgplsim <- function(
     formula,
     index,
     data,
-    family = binomial(),
+    family = stats::binomial(),
     offset = NULL,
     M = NULL,
     lambda = 1,
