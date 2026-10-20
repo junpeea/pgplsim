@@ -14,8 +14,8 @@ Description: Implements penalized generalized partially linear single-index
     penalized B-splines, with a separate linear component for covariate
     adjustment. This formulation represents nonlinear joint predictor effects
     through a low-dimensional index while retaining interpretable linear
-    effects for additional covariates. The package supports generalized
-    response distributions and provides functions for model fitting,
+    effects for additional covariates. The package supports binomial and Poisson response
+    families and provides functions for model fitting,
     prediction, and inference.
 License: MIT + file LICENSE
 Encoding: UTF-8
