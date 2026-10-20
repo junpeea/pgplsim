@@ -203,8 +203,6 @@ fit <- pgplsim(
 Potential future extensions include:
 
 - Gaussian outcomes
-- Negative Binomial outcomes
-- Zero-inflated Poisson outcomes
 - Survival GPLSIMs
 
 ---
@@ -360,8 +358,6 @@ Potential future developments include:
 - Parallel bootstrap
 - Case weights
 - Survey-weighted GPLSIMs
-- Negative Binomial GPLSIMs
-- Zero-inflated GPLSIMs
 - Shiny interface
 - CRAN release
 
