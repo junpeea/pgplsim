@@ -1,5 +1,20 @@
 # CRAN submission comments
 
+### Local R CMD check
+
+- Platform: Windows 11 x64
+- R version: 4.4.0
+- Package version: 0.1.0
+- Check: `devtools::check(args = "--as-cran", error_on = "never")`
+- Results: 0 errors, 0 warnings, 1 NOTE
+
+**NOTE:**
+`checking for future file timestamps ... unable to verify current time`
+
+This NOTE occurred because the check environment could not verify the current time. No package-specific error or warning was reported.
+
+The complete testthat suite passed (210 tests), including regression tests for Poisson offset handling and bootstrap exposure-scale preservation.
+
 ## First submission
 
 This is the first CRAN submission of `pgplsim`, version 0.1.0.

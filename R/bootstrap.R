@@ -9,7 +9,8 @@
 #' to preserve the observed number of observations in each outcome
 #' category.
 #'
-#' Each bootstrap data set is refitted using [pgplsim()].
+#' Each bootstrap data set is refitted using the internal
+#' fitting routine underlying [pgplsim()].
 #'
 #' @param object A fitted object of class `"pgplsim"`.
 #' @param B Target number of successful bootstrap replications. Must be an
@@ -21,8 +22,13 @@
 #'   `object$X` is used.
 #' @param Z Optional original matrix of single-index covariates. If omitted,
 #'   `object$Z` is used.
-#' @param offset Optional original offset vector. If omitted,
-#'   `object$offset` is used.
+#' @param offset Optional numeric additive offset on the
+#'   linear-predictor scale for Poisson models.
+#'   For exposure E, specify `offset = log(E)`.
+#'   If omitted, the offset is recovered from the fitted
+#'   object. Internally, the corresponding positive
+#'   exposure is passed to the bootstrap fitting routine.
+#'   Offsets are not supported for binomial models.
 #' @param method Bootstrap resampling method. `"case"` samples observations
 #'   from the full data. `"stratified"` samples separately within outcome
 #'   groups and is intended primarily for binomial models.
@@ -194,11 +200,17 @@ bootstrap_pgplsim <- function(
     X_b <- X[index, , drop = FALSE]
     Z_b <- Z[index, , drop = FALSE]
 
+
+    # offset has already been converted to positive exposure
+    # by recover_pgplsim_data() for Poisson models.
+    # Resample it without any additional transformation.
+
     offset_b <- if (is.null(offset)) {
       NULL
     } else {
       offset[index]
     }
+
 
     args <- c(
       list(
@@ -506,7 +518,34 @@ recover_pgplsim_data <- function(
     Z <- object$Z
   }
 
-  if (is.null(offset)) {
+
+  if (identical(object$family$family, "poisson")) {
+
+    if (is.null(offset)) {
+
+      if ("exposure" %in% names(object) &&
+          !is.null(object$exposure)) {
+
+        # Public pgplsim() objects store positive exposure
+        # separately from their additive log-offset.
+        offset <- object$exposure
+
+      } else {
+
+        # Legacy pgplsim_fit() objects store positive
+        # exposure in object$offset.
+        offset <- object$offset
+      }
+
+    } else {
+
+      # Explicit bootstrap offset follows the public
+      # additive log-offset convention.
+      offset <- exp(offset)
+    }
+
+  } else if (is.null(offset)) {
+
     offset <- object$offset
   }
 

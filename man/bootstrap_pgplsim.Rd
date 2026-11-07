@@ -38,8 +38,13 @@ when individual bootstrap fits fail to converge.}
 \item{Z}{Optional original matrix of single-index covariates. If omitted,
 \code{object$Z} is used.}
 
-\item{offset}{Optional original offset vector. If omitted,
-\code{object$offset} is used.}
+\item{offset}{Optional numeric additive offset on the
+linear-predictor scale for Poisson models.
+For exposure E, specify \code{offset = log(E)}.
+If omitted, the offset is recovered from the fitted
+object. Internally, the corresponding positive
+exposure is passed to the bootstrap fitting routine.
+Offsets are not supported for binomial models.}
 
 \item{method}{Bootstrap resampling method. \code{"case"} samples observations
 from the full data. \code{"stratified"} samples separately within outcome
@@ -81,7 +86,8 @@ to preserve the observed number of observations in each outcome
 category.
 }
 \details{
-Each bootstrap data set is refitted using \code{\link[=pgplsim]{pgplsim()}}.
+Each bootstrap data set is refitted using the internal
+fitting routine underlying \code{\link[=pgplsim]{pgplsim()}}.
 }
 \examples{
 set.seed(2026)
