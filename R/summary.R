@@ -7,7 +7,10 @@
 #' @param object An object of class `"pgplsim"`.
 #' @param ... Additional arguments, currently ignored.
 #'
-#' @return An object of class `"summary.pgplsim"`.
+#' @return An object of class `"summary.pgplsim"`. For Gaussian fits,
+#'   includes residual dispersion, residual degrees of freedom, and
+#'   asymptotic-normal inference for linear coefficients in the manuscript's
+#'   convention.
 #'
 #' @importFrom stats pnorm
 #' @export
@@ -20,6 +23,8 @@ summary.pgplsim <- function(object, ...) {
     names(beta) <- paste0("X", seq_along(beta))
   }
 
+  # Lu (2026) establishes asymptotic normality for parametric effects;
+  # preserve the package's normal-reference statistics for all families.
   z_beta <- beta / se_beta
   p_beta <- 2 * stats::pnorm(abs(z_beta), lower.tail = FALSE)
 
@@ -57,6 +62,14 @@ summary.pgplsim <- function(object, ...) {
     converged = object$converged
   )
 
+  if (identical(object$family$family, "gaussian")) {
+    out$dispersion <- object$dispersion
+    out$residual_df <- object$residual_df
+    out$effective_df <- object$effective_df
+    out$rss <- object$rss
+    out$logLik_mle <- object$logLik_mle
+  }
+
   class(out) <- "summary.pgplsim"
 
   out
@@ -89,6 +102,11 @@ print.summary.pgplsim <- function(
   cat("Smoothing parameter lambda: ", signif(x$lambda, digits), "\n", sep = "")
   cat("Iterations: ", x$iterations, "\n", sep = "")
   cat("Converged: ", x$converged, "\n", sep = "")
+  if (identical(x$family, "gaussian")) {
+    cat("Residual dispersion: ", signif(x$dispersion, digits), "\n", sep = "")
+    cat("Residual df: ", signif(x$residual_df, digits), "\n", sep = "")
+    cat("Effective model df: ", signif(x$effective_df, digits), "\n", sep = "")
+  }
 
   cat("\nLinear component:\n")
   print(round(x$linear, digits))

@@ -26,7 +26,7 @@
 #'   Poisson prediction. A scalar is recycled to all prediction observations.
 #'   For an exposure such as population or person-time, supply its logarithm,
 #'   for example `offset = log(exposure)`. Offsets are not supported for
-#'   binomial models.
+#'   Gaussian or binomial models.
 #' @param ... Additional arguments passed to the internal matrix prediction
 #'   engine.
 #'
@@ -67,9 +67,9 @@ predict.pgplsim <- function(
 
   fam <- tolower(as.character(object$family$family)[1L])
 
-  if (!fam %in% c("binomial", "poisson")) {
+  if (!fam %in% c("gaussian", "binomial", "poisson")) {
     stop(
-      "Prediction is currently supported only for binomial and Poisson models.",
+      "Prediction is supported for Gaussian, binomial, and Poisson models.",
       call. = FALSE
     )
   }
@@ -87,9 +87,9 @@ predict.pgplsim <- function(
 
   if (is.null(newdata)) {
 
-    if (fam == "binomial" && !is.null(offset)) {
+    if (fam != "poisson" && !is.null(offset)) {
       stop(
-        "`offset` is not supported for binomial models.",
+        "`offset` is supported only for Poisson models.",
         call. = FALSE
       )
     }
@@ -194,11 +194,11 @@ predict.pgplsim <- function(
   # 7. Validate prediction offset
   ############################################################
 
-  if (fam == "binomial") {
+  if (fam != "poisson") {
 
     if (!is.null(offset)) {
       stop(
-        "`offset` is not supported for binomial models.",
+        "`offset` is supported only for Poisson models.",
         call. = FALSE
       )
     }
@@ -798,6 +798,18 @@ predict.pgplsim <- function(
   )
 
   ############################################################
+  # Gaussian identity link
+  ############################################################
+
+  if (identical(family_name, "gaussian")) {
+    if (!is.null(offset)) {
+      stop("Offsets are currently supported only for Poisson prediction.",
+           call. = FALSE)
+    }
+    return(eta)
+  }
+
+  ############################################################
   # Binomial
   ############################################################
 
@@ -805,7 +817,7 @@ predict.pgplsim <- function(
 
     if (!is.null(offset)) {
       stop(
-        "`offset` is currently supported only for Poisson prediction.",
+        "`offset` is supported only for Poisson prediction.",
         call. = FALSE
       )
     }

@@ -69,9 +69,14 @@ pgplsim_fit <- function(
   family <- initialize_family(family)
   fam <- family$family
 
-  if (!fam %in% c("binomial", "poisson")) {
+  if (identical(fam, "gaussian") && !identical(family$link, "identity")) {
+    stop("Gaussian PGPLSIM currently requires the identity link.",
+         call. = FALSE)
+  }
+
+  if (!fam %in% c("gaussian", "binomial", "poisson")) {
     stop(
-      "Only `binomial()` and `poisson()` are currently supported.",
+      "Only `gaussian()`, `binomial()` and `poisson()` are currently supported.",
       call. = FALSE
     )
   }
@@ -97,6 +102,11 @@ pgplsim_fit <- function(
   nBeta <- ncol(X)
   nAlpha <- ncol(Z)
 
+  if (fam == "gaussian" && !is.null(offset)) {
+    stop("Gaussian offsets are not implemented in Phase 1 Step 1.2.",
+         call. = FALSE)
+  }
+
   if (fam == "poisson") {
     if (is.null(offset)) {
       C <- rep(1, n)
@@ -114,6 +124,11 @@ pgplsim_fit <- function(
   ############################################################
   # Step 0: Initial alpha from working GLM
   ############################################################
+
+  if (fam == "gaussian") {
+    init_dat <- data.frame(y = y, Z, X)
+    init_fit <- stats::lm(y ~ ., data = init_dat)
+  }
 
   if (fam == "binomial") {
     init_dat <- data.frame(y = y, Z, X)
@@ -167,7 +182,26 @@ pgplsim_fit <- function(
   # Fisher-scoring loop
   ############################################################
 
-  for (iter in seq_len(maxit)) {
+  # Gaussian: manuscript Section 3.1 uses an INNER parameter fit at fixed
+  # smoothing and an OUTER Fellner-Schall update. Keep other families' proven
+  # iteration paths unchanged in this phase.
+  if (fam == "gaussian") {
+    gaussian_stage <- fit_gaussian_two_stage_pkg(
+      theta = theta, Y = y, X = X, Z = Z,
+      nAlpha = nAlpha, nBeta = nBeta, qn = qn,
+      lambda = lambda_current, maxit = maxit, tol = tol, trace = trace
+    )
+    theta <- gaussian_stage$theta
+    alpha <- gaussian_stage$alpha
+    beta <- gaussian_stage$beta
+    gamma <- gaussian_stage$gamma
+    lambda_current <- gaussian_stage$lambda
+    converged <- gaussian_stage$converged
+    theta_diff <- gaussian_stage$theta_diff
+    iter <- gaussian_stage$iterations
+    gaussian_smoothing <- gaussian_stage$smoothing
+  } else {
+    for (iter in seq_len(maxit)) {
 
     theta_old <- theta
     alpha_old <- alpha
@@ -274,10 +308,19 @@ pgplsim_fit <- function(
       break
     }
   }
+  }
 
   ############################################################
   # Final likelihood and fitted basis
   ############################################################
+
+  if (fam == "gaussian") {
+    last_fit <- findLogLik_gaussian_pkg(
+      Y = y, X = X, Z = Z, alpha = alpha,
+      beta = beta, gamma = gamma,
+      lambda = lambda_current, qn = qn
+    )
+  }
 
   if (fam == "binomial") {
     last_fit <- findLogLik_bino_pkg(
@@ -362,7 +405,9 @@ pgplsim_fit <- function(
   linear_predictor <- linear_component +
     smooth_component
 
-  if (fam == "binomial") {
+  if (fam == "gaussian") {
+    mu_hat <- linear_predictor
+  } else if (fam == "binomial") {
     mu_hat <- stats::plogis(
       linear_predictor
     )
@@ -381,6 +426,11 @@ pgplsim_fit <- function(
 
   H_inv <- last_fit$H.inv
   V_full <- -H_inv
+  if (fam == "gaussian") {
+    # H_inv uses the unit-dispersion Fisher curvature; its
+    # covariance must be scaled by the estimated residual variance.
+    V_full <- last_fit$dispersion * V_full
+  }
 
   p_theta <- nAlpha - 1
   V_theta <- V_full[seq_len(p_theta), seq_len(p_theta), drop = FALSE]
@@ -422,6 +472,8 @@ pgplsim_fit <- function(
       ord = ord,
       outer_ok = outer_ok,
       lambda = lambda_current,
+      smoothing_diagnostics = if (fam == "gaussian") gaussian_smoothing else NULL,
+      outer_iterations = if (fam == "gaussian") gaussian_stage$outer_iterations else NULL,
       family = family,
       offset = if (fam == "poisson") C else NULL,
 
@@ -450,6 +502,18 @@ pgplsim_fit <- function(
       residuals = y - mu_hat,
 
       logLik = last_fit$lik,
+      # Gaussian diagnostics: `logLik` is evaluated at the adjusted
+      # Pearson dispersion, while `logLik_mle` uses RSS / n.  Only the
+      # latter maximizes the ordinary Gaussian likelihood conditional
+      # on the fitted mean. Neither quantity includes the spline penalty.
+      logLik_mle = if (fam == "gaussian") last_fit$lik_mle else NULL,
+      dispersion = if (fam == "gaussian") last_fit$dispersion else NULL,
+      dispersion_mle = if (fam == "gaussian") last_fit$dispersion_mle else NULL,
+      rss = if (fam == "gaussian") last_fit$rss else NULL,
+      residual_df = if (fam == "gaussian") last_fit$residual_df else NULL,
+      effective_df = if (fam == "gaussian") last_fit$effective_df else NULL,
+      penalty_quadratic = if (fam == "gaussian") last_fit$roughness else NULL,
+      penalty_value = if (fam == "gaussian") last_fit$penalty else NULL,
       penalized_logLik = last_fit$penalized_lik,
       grad = last_fit$grad,
       H_inv = H_inv,
@@ -462,8 +526,16 @@ pgplsim_fit <- function(
 
       # Observation-level ingredients used by vcov.R
       estimating_design = last_fit$estimating_design,
-      working_weights = last_fit$working_weights,
-      score_contributions = last_fit$score_contributions,
+      working_weights = if (fam == "gaussian") {
+        last_fit$working_weights / last_fit$dispersion
+      } else {
+        last_fit$working_weights
+      },
+      score_contributions = if (fam == "gaussian") {
+        last_fit$score_contributions / last_fit$dispersion
+      } else {
+        last_fit$score_contributions
+      },
 
       iterations = iter,
       converged = converged,
@@ -489,10 +561,10 @@ initialize_beta_gamma <- function(y, X, Z, C, alpha, family, qn) {
 
   u <- as.numeric(Z %*% alpha)
 
-  if (fam == "binomial") {
-    dataset <- cbind(y, X, Z, u)
-  } else {
+  if (fam == "poisson") {
     dataset <- cbind(y, X, Z, C, u)
+  } else {
+    dataset <- cbind(y, X, Z, u)
   }
 
   dataset <- dataset[order(dataset[, ncol(dataset)]), , drop = FALSE]
@@ -517,7 +589,9 @@ initialize_beta_gamma <- function(y, X, Z, C, alpha, family, qn) {
 
   BB <- basis$BB
 
-  if (fam == "binomial") {
+  if (fam == "gaussian") {
+    fit0 <- stats::lm.fit(x = cbind(X1, BB), y = y1)
+  } else if (fam == "binomial") {
     fit0 <- stats::glm.fit(
       x = cbind(X1, BB),
       y = y1,
@@ -680,7 +754,10 @@ generate_P_matrix_pkg <- function(nE, nB, m = 2) {
 
   for (i in seq_len(num_rows)) {
     indices <- i:(i + m)
-    coeffs <- c(1, rep(-1, m - 1), 1)
+    # Order-m finite differences use the signed binomial coefficients.
+    # For m = 2 these are (1, -2, 1), annihilating both constant and
+    # linear coefficient sequences, as required by the manuscript.
+    coeffs <- (-1)^(m - 0:m) * choose(m, 0:m)
     D[i, indices] <- coeffs
   }
 
@@ -720,6 +797,263 @@ update_lambda_pkg <- function(mfit, alpha, beta, gamma, lambda) {
   }
 
   out
+}
+
+
+# Equation (9), expressed in the package's stored penalty multiplier:
+#   s = lambda_manuscript^2, P_s = s P
+#   s_new = s * [ tr((sP)^- P) - tr((E'E + sP)^-1 P) ] / (theta'Ptheta)
+#         = [ rank(P) - s tr((E'E + sP)^-1 P) ] / (theta'Ptheta).
+# The rank expression avoids constructing a pseudoinverse of singular sP.
+# Both expressions use the unit-dispersion Fisher information; the common
+# Gaussian dispersion factor cancels when the penalty is scaled as in Eq (6).
+update_lambda_gaussian_FS_pkg <- function(mfit, gamma, lambda,
+                                          lower = 1e-8, upper = 1e8) {
+  if (!is.finite(lambda) || lambda <= 0) {
+    stop("Gaussian smoothing multiplier must be positive and finite.")
+  }
+  P <- generate_P_matrix_pkg(nrow(mfit$estimating_design), length(gamma), 2)
+  Kinv <- -mfit$H.inv
+  # A second-difference penalty on gamma has rank length(gamma) - 2.
+  rankP <- length(gamma) - 2L
+  rough <- as.numeric(crossprod(gamma, P[
+    (nrow(P) - length(gamma) + 1L):nrow(P),
+    (ncol(P) - length(gamma) + 1L):ncol(P), drop = FALSE
+  ] %*% gamma))
+  trace_term <- sum(diag(Kinv %*% P))
+  numerator <- rankP - lambda * trace_term
+  # A zero-roughness component has no informative multiplicative update.
+  # Retaining the prior lambda avoids division by zero / arbitrary explosion.
+  if (!is.finite(rough) || rough <= .Machine$double.eps ||
+      !is.finite(numerator) || numerator <= 0) {
+    return(list(lambda = lambda, updated = FALSE,
+                numerator = numerator, roughness = rough,
+                penalty_rank = rankP, trace_term = trace_term))
+  }
+  candidate <- numerator / rough
+  if (!is.finite(candidate) || candidate <= 0) candidate <- lambda
+  candidate <- max(lower, min(upper, candidate))
+  list(lambda = candidate, updated = TRUE,
+       numerator = numerator, roughness = rough,
+       penalty_rank = rankP, trace_term = trace_term)
+}
+
+# Two-stage Gaussian algorithm: for each outer iteration, converge the inner
+# Fisher-scoring/step-halving updates with smoothing held fixed, then update
+# smoothing by the generalized Fellner-Schall rule. `maxit` bounds both loops.
+fit_gaussian_two_stage_pkg <- function(theta, Y, X, Z, nAlpha, nBeta,
+                                       qn, lambda, maxit, tol, trace) {
+  extract <- function(par) {
+    list(alpha = alpha_from_theta(par[seq_len(nAlpha - 1L)]),
+         beta = par[nAlpha:(nAlpha + nBeta - 1L)],
+         gamma = par[(nAlpha + nBeta):length(par)])
+  }
+  evaluate <- function(par, smoothing) {
+    parts <- extract(par)
+    findLogLik_gaussian_pkg(
+      Y = Y, X = X, Z = Z, alpha = parts$alpha,
+      beta = parts$beta, gamma = parts$gamma,
+      lambda = smoothing, qn = qn
+    )
+  }
+  theta_diff <- Inf
+  relative_lambda_diff <- Inf
+  nsteps <- 0L
+  converged <- FALSE
+  lambda_history <- numeric(0)
+  lambda_candidate_history <- numeric(0)
+  inner_history <- integer(0)
+  fs_updated <- logical(0)
+  outer_iterations <- 0L
+
+  for (outer in seq_len(maxit)) {
+    outer_iterations <- outer
+    lambda_history <- c(lambda_history, lambda)
+    theta_before_outer <- theta
+    inner_converged <- FALSE
+    for (inner in seq_len(maxit)) {
+      current <- evaluate(theta, lambda)
+      theta_new <- FishScore_stephalv_Gaussian_pkg(
+        theta = theta, lambda = lambda, mfit = current,
+        Y = Y, X = X, Z = Z,
+        nAlpha = nAlpha, nBeta = nBeta, qn = qn
+      )
+      theta_diff <- sqrt(sum((theta_new - theta)^2))
+      theta <- theta_new
+      nsteps <- nsteps + 1L
+      if (trace) cat("Gaussian outer:", outer, "inner:", inner,
+                     "theta_diff:", theta_diff, "lambda:", lambda, "\n")
+      if (theta_diff < tol) {
+        inner_converged <- TRUE
+        break
+      }
+    }
+    inner_history <- c(inner_history, inner)
+    fitted <- evaluate(theta, lambda)
+    parts <- extract(theta)
+    fs <- update_lambda_gaussian_FS_pkg(fitted, parts$gamma, lambda)
+    proposed <- fs$lambda
+    lambda_candidate_history <- c(lambda_candidate_history, proposed)
+    fs_updated <- c(fs_updated, fs$updated)
+    relative_lambda_diff <- abs(log(proposed / lambda))
+    outer_theta_diff <- sqrt(sum((theta - theta_before_outer)^2))
+    if (trace) cat("Gaussian outer:", outer,
+                   "lambda proposed:", proposed,
+                   "relative log change:", relative_lambda_diff, "\n")
+    # Only call the solution converged after the fixed-lambda fit and
+    # smoothing update have BOTH stabilized. Keep a lambda at which theta
+    # was actually fitted rather than returning an unrefitted proposal.
+    if (inner_converged && outer_theta_diff < tol &&
+        relative_lambda_diff < tol) {
+      converged <- TRUE
+      break
+    }
+    if (outer == maxit) break
+    lambda <- proposed
+  }
+  parts <- extract(theta)
+  list(theta = theta, alpha = parts$alpha, beta = parts$beta,
+       gamma = parts$gamma, lambda = lambda, iterations = nsteps,
+       outer_iterations = outer_iterations, converged = converged,
+       theta_diff = theta_diff,
+       smoothing = list(lambda_history = lambda_history,
+                        proposed_lambda_history = lambda_candidate_history,
+                        inner_iterations = inner_history,
+                        fs_updated = fs_updated,
+                        relative_log_lambda_change = relative_lambda_diff))
+}
+
+# Gaussian identity-link specialization of Lu (2026), Section 3.
+# Parameter order is (eta, beta, zeta), matching the existing engine.
+# The package stores lambda_eff = lambda_manuscript^2.
+findLogLik_gaussian_pkg <- function(Y, X, Z, alpha, beta, gamma,
+                                    lambda, qn) {
+  n <- length(Y)
+  nBeta <- ncol(X)
+  nAlpha <- ncol(Z)
+  U <- as.vector(Z %*% alpha)
+  order_u <- order(U)
+  Y <- Y[order_u]
+  X <- X[order_u, , drop = FALSE]
+  Z <- Z[order_u, , drop = FALSE]
+  U <- U[order_u]
+
+  basis <- build_pgplsim_basis(U, qn = qn, family_name = "gaussian")
+  BB <- basis$BB
+  BBD <- basis$BBD
+  eta_phi <- as.vector(BBD %*% gamma)
+  mu <- as.vector(BB %*% gamma + X %*% beta)
+  resid <- Y - mu
+  theta_alpha <- theta_from_alpha(alpha)
+  k <- length(theta_alpha)
+  r2 <- sum(theta_alpha^2)
+  norm1 <- 1 / sqrt(1 + r2)
+  norm3 <- norm1 / (1 + r2)
+  zrest <- Z[, -1, drop = FALSE]
+  zlin <- as.vector(Z[, 1] + zrest %*% theta_alpha)
+  psi <- norm1 * zrest - norm3 *
+    (zlin * matrix(theta_alpha, nrow = n, ncol = k, byrow = TRUE))
+  xi <- psi * eta_phi
+  E <- rbind(t(xi), t(X), t(BB))
+  theta <- c(theta_alpha, beta, gamma)
+  P <- generate_P_matrix_pkg(length(theta), ncol(BB), 2)
+  Ptheta <- as.vector(P %*% theta)
+  roughness <- as.numeric(crossprod(theta, Ptheta))
+  rss <- sum(resid^2)
+  penalty <- 0.5 * lambda * roughness
+  # Score and expected curvature after canceling the common 1/sigma^2.
+  grad <- as.vector(E %*% resid - lambda * Ptheta)
+  K <- tcrossprod(E) + lambda * P
+  K <- 0.5 * (K + t(K))
+  R <- tryCatch(chol(K), error = function(e) NULL)
+  if (is.null(R)) {
+    ridge <- 1e-8
+    for (j in seq_len(8L)) {
+      R <- tryCatch(chol(K + diag(ridge, nrow(K))),
+                    error = function(e) NULL)
+      if (!is.null(R)) {
+        K <- K + diag(ridge, nrow(K))
+        break
+      }
+      ridge <- ridge * 10
+    }
+  }
+  if (is.null(R)) {
+    stop("Failed to make the Gaussian Fisher information positive definite.")
+  }
+  Kinv <- chol2inv(R)
+  # Eq. (8) of Lu (2026) calls rho an effective df, but the stated
+  # trace is a MODEL effective df.  The adjusted Pearson estimate
+  # requires the RESIDUAL df: n - tr[(E'E + lambda P)^-1 E'E].
+  # If a numerical ridge is used, K contains that ridge and the trace
+  # is computed from the same matrix actually inverted by scoring.
+  effective_df <- sum(diag(Kinv %*% tcrossprod(E)))
+  residual_df <- n - effective_df
+  if (!is.finite(residual_df) || residual_df <= 0) {
+    stop("Gaussian residual degrees of freedom must be positive.")
+  }
+  dispersion <- rss / residual_df
+  if (!is.finite(dispersion) || dispersion <= 0) {
+    stop("Gaussian residual variance must be positive and finite.")
+  }
+  lik <- sum(stats::dnorm(Y, mean = mu,
+                          sd = sqrt(dispersion), log = TRUE))
+  # Distinguish the full density at the adjusted Pearson dispersion
+  # from the ordinary Gaussian profile likelihood (conditional on mu),
+  # which is maximized at RSS/n.  An ordinary ML profile log likelihood
+  # is useful for independent numerical checks, but not an automatic
+  # justification for likelihood-ratio tests in this penalized model.
+  dispersion_mle <- rss / n
+  lik_mle <- sum(stats::dnorm(Y, mean = mu,
+                              sd = sqrt(dispersion_mle), log = TRUE))
+  # This is the unscaled penalized objective used for scoring/line search.
+  objective <- -0.5 * rss - penalty
+  list(
+    lik = lik,
+    lik_mle = lik_mle,
+    penalized_lik = lik - penalty / dispersion,
+    objective = objective,
+    penalty = penalty,
+    roughness = roughness,
+    rss = rss,
+    dispersion_mle = dispersion_mle,
+    grad = grad,
+    H.inv = -Kinv,
+    basis = basis,
+    dispersion = dispersion,
+    effective_df = effective_df,
+    residual_df = residual_df,
+    estimating_design = E,
+    working_weights = rep(1, n),
+    score_contributions = t(E) * resid
+  )
+}
+
+FishScore_stephalv_Gaussian_pkg <- function(theta, lambda, mfit,
+                                            Y, X, Z, nAlpha, nBeta,
+                                            qn, maxk = 12L) {
+  # Eq. (7): Newton/Fisher step with k = 0, 1, 2, ...;
+  # accept only a strict increase of the *penalized* objective.
+  direction <- -as.vector(mfit$H.inv %*% mfit$grad)
+  for (k in 0:maxk) {
+    theta_try <- theta + (0.5)^k * direction
+    alpha_try <- alpha_from_theta(theta_try[seq_len(nAlpha - 1L)])
+    beta_try <- theta_try[nAlpha:(nAlpha + nBeta - 1L)]
+    gamma_try <- theta_try[(nAlpha + nBeta):length(theta_try)]
+    candidate <- tryCatch(
+      findLogLik_gaussian_pkg(
+        Y = Y, X = X, Z = Z, alpha = alpha_try,
+        beta = beta_try, gamma = gamma_try,
+        lambda = lambda, qn = qn
+      ), error = function(e) NULL
+    )
+    if (!is.null(candidate) && is.finite(candidate$objective) &&
+        candidate$objective > mfit$objective) {
+      return(theta_try)
+    }
+  }
+  # A stationary point or unsuccessful line search leaves theta unchanged.
+  theta
 }
 
 
@@ -1268,9 +1602,14 @@ pgplsim <- function(
   family <- initialize_family(family)
   fam <- family$family
 
-  if (!fam %in% c("binomial", "poisson")) {
+  if (identical(fam, "gaussian") && !identical(family$link, "identity")) {
+    stop("Gaussian PGPLSIM currently requires the identity link.",
+         call. = FALSE)
+  }
+
+  if (!fam %in% c("gaussian", "binomial", "poisson")) {
     stop(
-      "Only `binomial()` and `poisson()` are currently supported.",
+      "Only `gaussian()`, `binomial()` and `poisson()` are currently supported.",
       call. = FALSE
     )
   }
@@ -1365,7 +1704,7 @@ pgplsim <- function(
   # Validate public offset
   ############################################################
 
-  if (fam == "binomial" && !is.null(offset)) {
+  if (fam != "poisson" && !is.null(offset)) {
     stop(
       "`offset` is currently supported only for Poisson models.",
       call. = FALSE

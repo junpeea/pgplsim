@@ -1,7 +1,7 @@
 # pgplsim
 
 <!-- badges: start -->
-[![R-CMD-check](https://github.com/junpeea/pgplsim/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/junpeea/pgplsim/actions/workflows/R-CMD-check.yaml)
+[![R-CMD-check](https://github.com/junpeea/pgplsim/actions/workflows/rhub.yaml/badge.svg)](https://github.com/junpeea/pgplsim/actions/workflows/rhub.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![R](https://img.shields.io/badge/R-%3E%3D%204.4.0-blue.svg)](https://cran.r-project.org/)
 <!-- badges: end -->
@@ -185,8 +185,9 @@ pgplsim_control(
 
 Currently supported:
 
-- `binomial()`
-- `poisson()`
+- `gaussian()` (identity link)
+- `binomial()` (logit link)
+- `poisson()` (log link)
 
 For Poisson models, `offset` follows the usual GLM convention and is supplied on the **link scale**. For example, with a positive exposure variable:
 
@@ -202,7 +203,6 @@ fit <- pgplsim(
 
 Potential future extensions include:
 
-- Gaussian outcomes
 - Survival GPLSIMs
 
 ---
@@ -211,6 +211,7 @@ Potential future extensions include:
 
 - Generalized partially linear single-index models
 - Penalized B-spline estimation
+- Gaussian identity-link GPLSIM
 - Logistic GPLSIM
 - Poisson GPLSIM
 - Formula-based model specification
@@ -376,3 +377,36 @@ https://github.com/junpeea/pgplsim/issues
 ## License
 
 MIT © 2026 Yoon-Bae Jun
+
+
+## Gaussian PGPLSIM (identity link)
+
+Gaussian support uses the same normalized single-index model and
+penalized B-spline method as the generalized families. The smoothing
+multiplier stored in `fit$lambda` is the coefficient multiplying the
+penalty (the manuscript's squared lambda). The adjusted residual
+variance is RSS divided by the effective residual degrees of freedom.
+
+```r
+set.seed(2026)
+n <- 160
+d <- data.frame(x1 = rnorm(n), z1 = runif(n, -1, 1),
+                z2 = runif(n, -1, 1), z3 = runif(n, -1, 1))
+u <- as.matrix(d[c("z1", "z2", "z3")]) %*% rep(1 / sqrt(3), 3)
+d$y <- 0.7 * d$x1 + sin(2 * u) + rnorm(n, sd = 0.5)
+fit <- pgplsim(y ~ x1, index = ~ z1 + z2 + z3,
+               data = d, family = gaussian(), M = 5)
+summary(fit)
+predict(fit, type = "response") # identical to link scale
+# Four analytic covariance choices from Sections 4–5 of Lu (2026):
+V <- vcov(fit, type = "leverage")
+boot <- bootstrap_pgplsim(fit, B = 20, method = "case", seed = 42)
+vcov(fit, type = "bootstrap", bootstrap = boot)
+```
+
+For Gaussian models, offsets and outcome-stratified bootstrapping are
+not supported. The Gaussian summary reports asymptotic normal-reference linear-coefficient
+inference; effective residual degrees of freedom are used in estimating
+residual dispersion, not to select a t reference distribution. Index-parameter
+standard errors are supplied separately. Analytic and bootstrap
+uncertainty estimates should be assessed by simulation.

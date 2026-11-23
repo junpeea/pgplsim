@@ -6,7 +6,11 @@
 #'
 #' Extracts model-based, sandwich, leverage-adjusted,
 #' finite-sample-corrected, or bootstrap variance estimates
-#' for a fitted pgplsim model.
+#' for a fitted pgplsim model. For Gaussian fits, the leverage
+#' correction uses (1-h)^(-2) on squared residuals with unpenalized
+#' leverage, and the finite correction adds the Morel-type trace
+#' adjustment (Lu, 2026, Section 5). Non-Gaussian methods retain
+#' their previously implemented conventions.
 #'
 #' The internal unconstrained parameter ordering is
 #'
@@ -38,9 +42,10 @@
 #' @param bootstrap Optional object returned by
 #'   [bootstrap_pgplsim()]. Required when `type = "bootstrap"` unless
 #'   a bootstrap result is stored in `object$bootstrap`.
-#' @param finite_df Optional effective parameter count used for the
-#'   finite-sample correction. The default is the dimension of the
-#'   unconstrained parameter vector.
+#' @param finite_df Optional effective model degrees of freedom for the
+#'   Gaussian Morel-type finite-sample correction. By default, uses
+#'   `object$effective_df`. For other families, the legacy correction
+#'   defaults to the full unconstrained parameter count.
 #' @param ... Additional arguments, currently ignored.
 #'
 #' @return A variance-covariance matrix for the parameter block selected by
@@ -176,6 +181,12 @@ pgplsim_sandwich_vcov <- function(
 
   adjustment <- match.arg(adjustment)
 
+  # Lu (2026), Sections 5.1--5.2: Gaussian covariance estimators.
+  # Keep the existing non-Gaussian covariance behavior unchanged.
+  if (identical(object$family$family, "gaussian")) {
+    return(pgplsim_gaussian_sandwich_vcov(object, adjustment, finite_df))
+  }
+
   bread <- pgplsim_model_vcov(object)
   d <- nrow(bread)
 
@@ -259,6 +270,91 @@ pgplsim_sandwich_vcov <- function(
     V <- (n / (n - finite_df)) * V
   }
 
+  V
+}
+
+
+############################################################
+# Gaussian covariance estimators: Lu (2026), Sections 4--5
+############################################################
+
+pgplsim_gaussian_sandwich_vcov <- function(
+    object,
+    adjustment = c("none", "leverage", "finite"),
+    finite_df = NULL
+) {
+  adjustment <- match.arg(adjustment)
+  dispersion <- object$dispersion
+  if (!is.numeric(dispersion) || length(dispersion) != 1L ||
+      !is.finite(dispersion) || dispersion <= 0) {
+    stop("Gaussian covariance requires positive object$dispersion.",
+         call. = FALSE)
+  }
+
+  # E in the fit is d x n. The observed score is r_i E_i / sigma^2.
+  E <- as.matrix(object$estimating_design)
+  bread <- pgplsim_model_vcov(object) # sigma^2 * (E E' + s P)^-1
+  d <- nrow(bread)
+  n <- length(object$residuals)
+  if (!is.numeric(E) || !identical(dim(E), c(d, n)) ||
+      any(!is.finite(E))) {
+    stop("Gaussian estimating_design must be a finite d by n matrix.",
+         call. = FALSE)
+  }
+  r <- as.numeric(object$residuals)
+  if (any(!is.finite(r)) || n <= d) {
+    stop("Gaussian residuals must be finite, with n > d.", call. = FALSE)
+  }
+  # The fitting routine sorts rows by the current single index before
+  # constructing E and the scores. `object$residuals` is in original data
+  # order, so use the cached scores to preserve exact row alignment.
+  if (is.null(object$score_contributions)) {
+    stop("Gaussian fit is missing score_contributions.", call. = FALSE)
+  }
+  score <- as.matrix(object$score_contributions)
+  if (!identical(dim(score), c(n, d)) || any(!is.finite(score))) {
+    stop("Gaussian score_contributions must be a finite n by d matrix.",
+         call. = FALSE)
+  }
+  if (adjustment == "leverage") {
+    # Manuscript Eq. (Section 5.2): unpenalized h_ii = E_i' (E E')^-1 E_i.
+    # This deliberately differs from the penalized smoother's diagonal.
+    A_E <- tcrossprod(E)
+    A_E_inv_E <- tryCatch(solve(A_E, E), error = function(e) NULL)
+    if (is.null(A_E_inv_E)) {
+      stop("Leverage correction requires full-rank unpenalized E E'.",
+           call. = FALSE)
+    }
+    h <- colSums(E * A_E_inv_E)
+    if (any(!is.finite(h)) || any(h < -1e-6) || any(h > 1 + 1e-6)) {
+      stop("Gaussian leverage values are outside [0, 1].", call. = FALSE)
+    }
+    # The manuscript applies (1-h_ii)^-2 to r_i^2 (HC3-style).
+    # Safeguard against exact unit leverage without modifying E or its rank.
+    score <- score / pmax(1 - h, 1e-8)
+  }
+  H <- crossprod(score)
+  V <- bread %*% H %*% bread
+
+  if (adjustment == "finite") {
+    # Morel et al. correction, manuscript Section 5.2:
+    # V_F = V_R + delta * kappa * I_lambda^-1.
+    # rho is the effective MODEL degrees of freedom (not residual df).
+    rho <- if (is.null(finite_df)) object$effective_df else finite_df
+    if (!is.numeric(rho) || length(rho) != 1L ||
+        !is.finite(rho) || rho <= 0 || rho >= n) {
+      stop("finite_df (effective model df) must be between 0 and n.",
+           call. = FALSE)
+    }
+    delta <- min(0.5, rho / (n - rho))
+    design_effect <- sum(diag(bread %*% H))
+    kappa <- max(1, design_effect / rho)
+    V <- V + delta * kappa * bread
+  }
+  V <- 0.5 * (V + t(V))
+  if (any(!is.finite(V))) {
+    stop("Gaussian covariance contains non-finite values.", call. = FALSE)
+  }
   V
 }
 

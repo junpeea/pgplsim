@@ -44,11 +44,12 @@ For exposure E, specify \code{offset = log(E)}.
 If omitted, the offset is recovered from the fitted
 object. Internally, the corresponding positive
 exposure is passed to the bootstrap fitting routine.
-Offsets are not supported for binomial models.}
+Offsets are not supported for Gaussian or binomial models.}
 
 \item{method}{Bootstrap resampling method. \code{"case"} samples observations
 from the full data. \code{"stratified"} samples separately within outcome
-groups and is intended primarily for binomial models.}
+groups and is available only for binomial models; Gaussian models
+should use \code{method = "case"}.}
 
 \item{seed}{Optional random-number seed.}
 
@@ -81,7 +82,8 @@ model objects when \code{keep_fits = TRUE}.
 }
 \description{
 Performs a nonparametric case bootstrap for a fitted \code{pgplsim}
-model. For binomial models, a stratified bootstrap can be used
+model. Gaussian models use ordinary case resampling; binomial
+models may use stratified resampling
 to preserve the observed number of observations in each outcome
 category.
 }

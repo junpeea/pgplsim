@@ -38,7 +38,7 @@ where \(X_i\) enters linearly, \(Z_i\) enters through a single index, and
 splines. The package normalizes \(\alpha\) so that \(\|\alpha\|=1\) and its
 first component is positive.
 
-The current implementation supports binomial and Poisson outcomes.
+The current implementation supports Gaussian (identity-link), binomial, and Poisson outcomes.
 
 The public fitting interface follows standard R modeling conventions:
 
@@ -464,3 +464,48 @@ example, `offset = 0` corresponds to exposure equal to 1.
 ```{r session-info}
 sessionInfo()
 ```
+
+
+# Gaussian single-index regression
+
+The Gaussian extension specializes the manuscript's Fisher-scoring
+algorithm to an identity link with a residual variance estimated from
+RSS and effective residual degrees of freedom. The package stores the
+penalty multiplier as `lambda`, corresponding to the squared smoothing
+parameter in Lu (July 30, 2026).
+
+```{r gaussian-example}
+set.seed(2026)
+n_g <- 180
+dat_g <- data.frame(x1 = rnorm(n_g), z1 = runif(n_g, -1, 1),
+                    z2 = runif(n_g, -1, 1), z3 = runif(n_g, -1, 1))
+alpha_g <- rep(1 / sqrt(3), 3)
+u_g <- as.vector(as.matrix(dat_g[c("z1", "z2", "z3")]) %*% alpha_g)
+phi_g <- sin(2 * u_g)
+dat_g$y <- 0.8 * dat_g$x1 + phi_g - mean(phi_g) +
+  rnorm(n_g, sd = 0.5)
+fit_g <- pgplsim(y ~ x1, index = ~ z1 + z2 + z3,
+                 data = dat_g, family = gaussian(), M = 5)
+summary(fit_g)
+head(predict(fit_g, type = "response"))
+head(predict(fit_g, type = "link"))
+```
+
+The model-based, sandwich, leverage-adjusted, and finite-sample
+covariance estimators are available through `vcov()`. Gaussian
+bootstrapping uses the nonparametric case bootstrap:
+
+```{r gaussian-inference, eval=FALSE}
+vcov(fit_g, type = "model")
+vcov(fit_g, type = "sandwich")
+vcov(fit_g, type = "leverage")
+vcov(fit_g, type = "finite")
+b_g <- bootstrap_pgplsim(fit_g, B = 200, method = "case", seed = 2026)
+vcov(fit_g, type = "bootstrap", bootstrap = b_g)
+```
+
+Gaussian offsets are not supported. The summary uses normal-reference
+statistics for linear effects in accordance with the manuscript's
+asymptotic normality result; the index parameter is constrained to a
+unit-length vector.
+The Gaussian extension is undergoing separate simulation validation.

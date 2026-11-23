@@ -34,7 +34,7 @@ matrix-based prediction. Do not supply together with \code{newdata}.}
 Poisson prediction. A scalar is recycled to all prediction observations.
 For an exposure such as population or person-time, supply its logarithm,
 for example \code{offset = log(exposure)}. Offsets are not supported for
-binomial models.}
+Gaussian or binomial models.}
 
 \item{...}{Additional arguments passed to the internal matrix prediction
 engine.}

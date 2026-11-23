@@ -266,10 +266,9 @@ test_that("unsupported families are rejected", {
       y = dat$y,
       X = dat$X,
       Z = dat$Z,
-      family = gaussian()
+      family = Gamma()
     ),
-    "Only `binomial()` and `poisson()` are currently supported",
-    fixed = TRUE
+    "Family not supported"
   )
 })
 

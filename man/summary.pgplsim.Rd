@@ -12,7 +12,10 @@
 \item{...}{Additional arguments, currently ignored.}
 }
 \value{
-An object of class \code{"summary.pgplsim"}.
+An object of class \code{"summary.pgplsim"}. For Gaussian fits,
+includes residual dispersion, residual degrees of freedom, and
+asymptotic-normal inference for linear coefficients in the manuscript's
+convention.
 }
 \description{
 Summarize a pgplsim object

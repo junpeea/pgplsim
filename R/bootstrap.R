@@ -5,7 +5,8 @@
 #' Bootstrap Inference for pgplsim
 #'
 #' Performs a nonparametric case bootstrap for a fitted `pgplsim`
-#' model. For binomial models, a stratified bootstrap can be used
+#' model. Gaussian models use ordinary case resampling; binomial
+#' models may use stratified resampling
 #' to preserve the observed number of observations in each outcome
 #' category.
 #'
@@ -28,10 +29,11 @@
 #'   If omitted, the offset is recovered from the fitted
 #'   object. Internally, the corresponding positive
 #'   exposure is passed to the bootstrap fitting routine.
-#'   Offsets are not supported for binomial models.
+#'   Offsets are not supported for Gaussian or binomial models.
 #' @param method Bootstrap resampling method. `"case"` samples observations
 #'   from the full data. `"stratified"` samples separately within outcome
-#'   groups and is intended primarily for binomial models.
+#'   groups and is available only for binomial models; Gaussian models
+#'   should use `method = "case"`.
 #' @param seed Optional random-number seed.
 #' @param max_attempts Maximum number of attempted fits. Failed bootstrap
 #'   fits are replaced until `B` successful fits are obtained or this limit
@@ -154,15 +156,17 @@ bootstrap_pgplsim <- function(
 
   family_name <- object$family$family
 
-  if (method == "stratified" &&
-      !identical(family_name, "binomial")) {
-    warning(
-      paste0(
-        "method = 'stratified' is primarily intended for binomial ",
-        "models. Proceeding by stratifying on unique response values."
-      ),
-      call. = FALSE
-    )
+  # Continuous Gaussian responses cannot meaningfully be stratified by
+  # their (usually unique) observed outcome values.
+  if (identical(family_name, "gaussian") &&
+      identical(method, "stratified")) {
+    stop("Gaussian bootstrap requires method = 'case'.", call. = FALSE)
+  }
+  if (identical(family_name, "gaussian") && !is.null(offset)) {
+    stop("Offsets are not supported for Gaussian bootstrap.", call. = FALSE)
+  }
+  if (identical(family_name, "binomial") && !is.null(offset)) {
+    stop("Offsets are not supported for binomial bootstrap.", call. = FALSE)
   }
 
   if (!is.null(seed)) {

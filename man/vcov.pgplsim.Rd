@@ -26,9 +26,10 @@
 \code{\link[=bootstrap_pgplsim]{bootstrap_pgplsim()}}. Required when \code{type = "bootstrap"} unless
 a bootstrap result is stored in \code{object$bootstrap}.}
 
-\item{finite_df}{Optional effective parameter count used for the
-finite-sample correction. The default is the dimension of the
-unconstrained parameter vector.}
+\item{finite_df}{Optional effective model degrees of freedom for the
+Gaussian Morel-type finite-sample correction. By default, uses
+\code{object$effective_df}. For other families, the legacy correction
+defaults to the full unconstrained parameter count.}
 
 \item{...}{Additional arguments, currently ignored.}
 }
@@ -41,7 +42,11 @@ the linear coefficients \code{beta}.
 \description{
 Extracts model-based, sandwich, leverage-adjusted,
 finite-sample-corrected, or bootstrap variance estimates
-for a fitted pgplsim model.
+for a fitted pgplsim model. For Gaussian fits, the leverage
+correction uses (1-h)^(-2) on squared residuals with unpenalized
+leverage, and the finite correction adds the Morel-type trace
+adjustment (Lu, 2026, Section 5). Non-Gaussian methods retain
+their previously implemented conventions.
 }
 \details{
 The internal unconstrained parameter ordering is

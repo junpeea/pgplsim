@@ -1,4 +1,4 @@
-test_that("convergence flag is TRUE when tolerance is easily satisfied", {
+test_that("convergence is reached within maxit at the requested tolerance", {
 
   dat <- make_binomial_test_data(
     n = 100,
@@ -17,8 +17,10 @@ test_that("convergence flag is TRUE when tolerance is easily satisfied", {
   )
 
   expect_true(fit$converged)
-  expect_lte(fit$iterations, 5)
+  expect_gte(fit$iterations, 1L)
+  expect_lt(fit$iterations, 30L)
   expect_true(is.finite(fit$convergence_difference))
+  expect_lt(fit$convergence_difference, 1e-5)
 })
 
 

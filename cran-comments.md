@@ -1,58 +1,42 @@
-# CRAN submission comments
+# CRAN submission comments — pgplsim 0.1.0
 
-### Local R CMD check
+## Current local check (November 23, 2026)
 
-- Platform: Windows 11 x64
-- R version: 4.4.0
-- Package version: 0.1.0
-- Check: `devtools::check(args = "--as-cran", error_on = "never")`
-- Results: 0 errors, 0 warnings, 1 NOTE
+- Windows 11 x64, R 4.4.0 (2024-04-24 ucrt).
+- `devtools::test()`: 308 passed, 0 failed, 0 warnings, 0 skipped (user-provided Step 1.6 output).
+- `devtools::check()`: 0 errors, 0 warnings, 1 NOTE.
+- NOTE: `checking for future file timestamps ... unable to verify current time`.
+- All package tests, documentation, examples, and vignette rebuilding passed in that local check.
 
-**NOTE:**
-`checking for future file timestamps ... unable to verify current time`
+The timestamp NOTE arises during R's environment time verification; no source-code error was reported. We will recheck with CRAN incoming settings and on additional platforms prior to submission.
 
-This NOTE occurred because the check environment could not verify the current time. No package-specific error or warning was reported.
+## New functionality
 
-The complete testthat suite passed (210 tests), including regression tests for Poisson offset handling and bootstrap exposure-scale preservation.
+The first CRAN release candidate now includes Gaussian identity-link PGPLSIM alongside binomial and Poisson models. Gaussian methods include Fisher-scoring estimation, adaptive smoothing, dispersion diagnostics, analytical covariance options, prediction, and case-bootstrap inference.
+
+## Prior R-hub checks — historical only
+
+The following earlier R-hub results predate the Gaussian integration and the second-difference penalty correction, so they **must not** be described as current cross-platform validation:
+
+| Platform | Errors | Warnings | NOTEs |
+|---|---:|---:|---:|
+| Ubuntu Linux, R 4.6.1 | 0 | 0 | 0 |
+| Windows, R-devel | 0 | 0 | 0 |
+| Ubuntu Linux, R 4.6.2 beta | 0 | 0 | 1 |
+
+The earlier Ubuntu NOTE reported CPU time 3.6 times elapsed time in testthat. These results must be refreshed using the final Gaussian-enabled source.
+
+## Pending final verification
+
+- Run current three-family compatibility tests and full suite after documentation updates.
+- Repeat local check with strict CRAN incoming settings, where feasible.
+- R-hub checks on current Linux, Windows, and macOS targets.
+- Review build output, manual, license, README, and DESCRIPTION before submission.
+
+## Simulation evidence and scope
+
+A Gaussian pilot simulation (n = 400, 30 replications) converged in 30/30 runs; the full 1,000-replication study was intentionally skipped. This is preliminary evidence, not definitive coverage calibration.
 
 ## First submission
 
-This is the first CRAN submission of `pgplsim`, version 0.1.0.
-
-## R CMD check results
-
-The package was checked on the following platforms:
-
-| Platform | Errors | Warnings | NOTES |
-|---|---:|---:|---:|
-| Windows 11, R 4.4.0 (local) | 0 | 0 | 1 |
-| Ubuntu Linux, R 4.6.1 (R-hub) | 0 | 0 | 0 |
-| Windows, R-devel (R-hub) | 0 | 0 | 0 |
-| Ubuntu Linux, R 4.6.2 beta (R-hub) | 0 | 0 | 1 |
-
-The local Windows NOTE was:
-
-```
-checking for future file timestamps ... NOTE
-unable to verify current time
-```
-
-This appears to be related to the local environment's inability to verify the current time.
-
-The Ubuntu next NOTE was:
-
-```
-checking tests ... NOTE
-Running R code in 'testthat.R' had CPU time
-3.6 times elapsed time
-```
-
-All tests completed successfully. The difference between CPU time and elapsed time may be related to multithreaded numerical computations.
-
-## Additional validation
-
-- All 188 tests passed in the local test suite.
-- Package examples and documentation checks passed.
-- All three vignettes built successfully.
-- Independent R-hub checks completed successfully on all three selected platforms.
-- No reverse dependencies are known for this first submission.
+This is intended as the first CRAN submission of pgplsim 0.1.0. No reverse dependencies are known.

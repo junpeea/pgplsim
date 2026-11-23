@@ -388,9 +388,9 @@ test_that("unsupported families are rejected by public interface", {
       y ~ x1,
       index = ~ z1 + z2,
       data = dat,
-      family = gaussian()
+      family = Gamma()
     ),
-    "binomial"
+    "Family not supported"
   )
 })
 
