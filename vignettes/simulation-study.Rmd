@@ -651,9 +651,15 @@ the final averages. Replication-level results make it possible to examine
 convergence failures, smoothing-parameter behavior, outlying estimates, and
 coverage in greater detail.
 
-The same framework can also be extended to Poisson outcomes. Under the current
-public API, a Poisson exposure should be supplied as an additive link-scale
-offset, for example `offset = log(exposure)`.
+Although this simulation study focuses on binomial outcomes, the
+`pgplsim` package also supports Gaussian models with an identity link
+and Poisson models with a log link. The same partially linear
+single-index modeling framework applies across these response
+families, with family-specific estimation and inference procedures.
+
+For Poisson outcomes involving exposure, the exposure should be
+supplied as an additive offset on the link scale, for example,
+`offset = log(exposure)`. Gaussian offsets are not currently supported.
 
 # Session information
 
