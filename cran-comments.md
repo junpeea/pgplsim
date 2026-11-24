@@ -10,6 +10,39 @@
 
 The timestamp NOTE arises during R's environment time verification; no source-code error was reported. We will recheck with CRAN incoming settings and on additional platforms prior to submission.
 
+
+## Test environments
+
+The package was checked using R-hub on the following configurations:
+
+- Linux, R-devel (GCC)
+- Windows, R-devel
+- macOS Intel, R-devel
+- macOS ARM64, R-devel
+- Ubuntu Linux, R-release
+- Ubuntu Linux, R-devel (Clang)
+- Ubuntu Linux, R-devel (Clang ASAN)
+
+All seven checks completed with:
+- 0 ERRORs
+- 0 WARNINGs
+- 0 NOTEs
+
+The test suite reported 403 passing expectations,
+with one intentional CRAN-specific test skip.
+
+Local Windows checks using R 4.4.0 also passed
+with 0 ERRORs and 0 WARNINGs.
+
+The local source-package check reported two NOTEs:
+- A GitHub Actions workflow URL that has since
+  been corrected.
+- An inability to verify the current time.
+
+Neither issue was reproduced in the seven R-hub
+configurations.
+
+
 ## New functionality
 
 The first CRAN release candidate now includes Gaussian identity-link PGPLSIM alongside binomial and Poisson models. Gaussian methods include Fisher-scoring estimation, adaptive smoothing, dispersion diagnostics, analytical covariance options, prediction, and case-bootstrap inference.
